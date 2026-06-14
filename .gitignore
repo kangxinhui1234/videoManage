@@ -1,0 +1,11 @@
+.api_key
+.api_key_siliconflow
+.idea/
+__pycache__/
+venvs/
+output/
+uploads/
+tasks.json
+tasks.json.bak
+*.pyc
+.env

@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+{% block title %}制作中心 - AI Studio{% endblock %}
+{% block content %}
+<style>.topbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.topbar select{width:auto;max-width:240px}
+.pipeline{display:flex;gap:6px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.step{display:flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600}
+.step-done{background:#dcfce7;color:#166534}
+.step-active{background:#dbeafe;color:#1e40af}
+.step-pending{background:#f3f4f6;color:#9ca3af}
+.badge{font-size:10px;padding:1px 6px;border-radius:8px;background:#fff;color:inherit}
+.strip{display:flex;gap:8px;overflow-x:auto;padding:6px 0}
+.chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;white-space:nowrap;background:var(--card);font-size:12px;transition:.15s;flex-shrink:0}
+.chip:hover{border-color:var(--accent)}
+.chip img.sc{width:56px;aspect-ratio:16/9;object-fit:cover;border-radius:4px;background:#f3f4f6}
+.chip img.ch{width:36px;aspect-ratio:3/4;object-fit:cover;border-radius:4px;background:#f3f4f6}
+.chip img.pr{width:36px;aspect-ratio:1/1;object-fit:cover;border-radius:4px;background:#f3f4f6}
+.chip .ph{width:36px;height:48px;background:#f3f4f6;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.chip .ps{width:56px;height:32px;background:#f3f4f6;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.chip .pp{width:36px;height:36px;background:#f3f4f6;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.shot-card{border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;background:var(--card);display:flex;gap:12px;align-items:flex-start}
+.shot-card .num{font-size:20px;font-weight:700;color:var(--accent);min-width:26px;line-height:1.1}
+.shot-card .body{flex:1;min-width:0}
+.shot-card .title{font-size:14px;font-weight:700;margin-bottom:2px}
+.shot-card .narration{font-size:13px;color:var(--text);line-height:1.7;margin:6px 0}
+.shot-card .dialogue{font-size:13px;color:var(--accent);margin:3px 0;font-weight:500}
+.ep-header{font-size:17px;font-weight:700;margin:24px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--accent)}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin:8px 0 12px}
+.progress-bar div{height:100%;background:var(--accent);border-radius:2px;transition:.4s}
+.dot{font-size:10px;padding:1px 7px;border-radius:8px;font-weight:600}
+.dot-green{background:#dcfce7;color:#166534}
+.dot-yellow{background:#fef3c7;color:#92400e}
+.tag{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:600;display:inline-block}
+.tag-s{background:#dbeafe;color:#1e40af}
+.tag-c{background:#ede9fe;color:#6d28d9}
+.tag-cd{background:#dcfce7;color:#166534}
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:999;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.overlay img{max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px}
+.modal-box{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border-radius:12px;padding:24px;z-index:1000;min-width:300px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999}
+.section-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 4px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}</style>
+<div class=topbar>
+  <select id=script-select onchange=loadScript(this.value)><option value="">选择剧本...</option></select>
+  <button onclick="confirmBatch('scene')">场景图</button>
+  <button onclick="confirmBatch('char')">角色图</button>
+  <button onclick="confirmBatch('shot')">分镜图</button>
+  <button onclick="confirmBatch('audio')">配音</button>
+  <button class=btn-outline onclick=exportMP4()>导出MP4</button>
+  <span class=muted id=status></span>
+</div>
+<div class=pipeline>
+  <span class="step step-pending" id=s-scenes>1.场景 <span class=badge id=b-scenes>-</span></span>
+  <span class="step step-pending" id=s-chars>2.角色 <span class=badge id=b-chars>-</span></span>
+  <span class="step step-pending" id=s-shots>3.分镜 <span class=badge id=b-shots>-</span></span>
+  <span class="step step-pending" id=s-audio>4.配音 <span class=badge id=b-audio>-</span></span>
+  <span class="step step-pending" id=s-export>5.导出</span>
+</div>
+<div class=progress-bar><div id=progress-fill style=width:0%></div></div>
+<div id=content><div class=empty style=padding:60px 20px>选择剧本开始制作</div></div>
+<div id=overlay style=display:none></div>
+{% endblock %}
+{% block scripts %}
+<script>
+var D=null,PA=null,_genning={};
+
+function $(id){return document.getElementById(id)}
+function toast(m,ok){ok=ok!==false;var e=document.createElement('div');e.className='toast '+(ok?'toast-ok':'toast-err');e.textContent=m;document.body.appendChild(e);setTimeout(function(){e.remove()},3000)}
+function setGen(k){_genning[k]=true;render()}
+function clrGen(k){delete _genning[k];render()}
+function findS(n){return (D.scenes||[]).find(function(x){return x.name===n})}
+function findC(n){return (D.characters||[]).find(function(x){return x.name===n})}
+function findP(n){return (D.props||[]).find(function(x){return x.name===n})}
+function findShot(eI,sI){var ep=(D.episodes||[]).find(function(e){return +e.index===+eI});return ep?(ep.shots||[]).find(function(s){return +s.index===+sI}):null}
+function hasImg(o){return o&&(o.image_path||o.image_url)}
+function esc(s){var t=(s||'').toString();return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function showOverlay(h){$('overlay').innerHTML=h;$('overlay').style.display=''}
+function hideOverlay(){$('overlay').style.display='none';$('overlay').innerHTML='';PA=null}
+
+async function loadScript(id){
+  if(!id){D=null;$('content').innerHTML='<div class=empty>选择剧本开始制作</div>';return}
+  $('status').textContent='加载中...';
+  try{
+    var url=(id==='demo'||id.includes('changan'))?'/scripts/demo_changan.json':'/api/script/load?id='+id;
+    var r=await fetch(url);var d=await r.json();D=d.script||d;
+    if(!D||!D.episodes) throw new Error('empty');
+    render();updateStats();$('status').textContent='';
+  }catch(e){$('status').textContent='加载失败: '+e.message}
+}
+
+async function loadList(){
+  try{
+    var r=await fetch('/api/script/list');var d=await r.json();
+    var h='<option value="">选择剧本...</option>';
+    for(var i=0;i<d.scripts.length;i++){var s=d.scripts[i];h+='<option value="'+s.id+'">'+(s.title||s.id)+'</option>'}
+    h+='<option value="demo">长安夜谍 (Demo)</option>';$('script-select').innerHTML=h;
+  }catch(e){}
+}
+
+function render(){
+  if(!D){$('content').innerHTML='<div class=empty>选择剧本开始制作</div>';return}
+  var h='',i,ok;
+
+  // Scenes
+  if(D.scenes&&D.scenes.length){
+    h+='<div class=section-label>场景 / 地点</div><div class=strip>';
+    for(i=0;i<D.scenes.length;i++){var sc=D.scenes[i];ok=hasImg(sc);
+      h+='<div class=chip data-act="'+(ok?'zoom':'gen')+'" data-type=scene data-name="'+esc(sc.name)+'">';
+      h+=ok?'<img src="'+(sc.image_path||sc.image_url)+'" class=sc>':'<div class=ps>+</div>';
+      h+='<div><div style="font-weight:600" title="'+esc(sc.image_prompt||'')+'">'+esc(sc.name)+'</div><span class="dot '+(ok?'dot-green':'dot-yellow')+'">'+(ok?'已出图':'待生成')+'</span></div></div>';}
+    h+='</div>';
+  }
+
+  // Characters
+  if(D.characters&&D.characters.length){
+    h+='<div class=section-label>角色</div><div class=strip>';
+    for(i=0;i<D.characters.length;i++){var c=D.characters[i];ok=hasImg(c);
+      h+='<div class=chip data-act="'+(ok?'zoom':'gen')+'" data-type=char data-name="'+esc(c.name)+'">';
+      h+=ok?'<img src="'+(c.image_path||c.image_url)+'" class=ch>':'<div class=ph>?</div>';
+      h+='<div><div style="font-weight:600" title="'+esc(c.image_prompt||'')+'">'+esc(c.name)+'</div><span class="dot '+(ok?'dot-green':'dot-yellow')+'">'+(ok?'已出图':'待生成')+'</span></div></div>';}
+    h+='</div>';
+  }
+
+  // Props
+  if(D.props&&D.props.length){
+    h+='<div class=section-label>道具</div><div class=strip>';
+    for(i=0;i<D.props.length;i++){var p=D.props[i];ok=hasImg(p);
+      h+='<div class=chip data-act="'+(ok?'zoom':'gen')+'" data-type=prop data-name="'+esc(p.name)+'">';
+      h+=ok?'<img src="'+(p.image_path||p.image_url)+'" class=pr>':'<div class=pp>+</div>';
+      h+='<div><div style="font-weight:600" title="'+esc(p.image_prompt||'')+'">'+esc(p.name)+'</div><span class="dot '+(ok?'dot-green':'dot-yellow')+'">'+(ok?'已出图':'待生成')+'</span></div></div>';}
+    h+='</div>';
+  }
+
+  // Shots
+  if(D.episodes){
+    h+='<div class=section-label>分镜列表</div>';
+    for(var ei=0;ei<D.episodes.length;ei++){var ep=D.episodes[ei];
+      h+='<div class=ep-header>'+esc(ep.title||('第'+(ep.index||1)+'集'))+' <button class="btn-sm btn-outline" onclick="event.stopPropagation();downloadEp('+ep.index+')" style="font-size:11px;margin-left:12px">下载本集</button></div>';
+      for(var si=0;si<(ep.shots||[]).length;si++){var s=ep.shots[si];
+        var imgs=s.images||[],audOk=!!s.audio_path;
+        var tags='';if(s.scene) tags+='<span class="tag tag-s">'+esc(s.scene)+'</span>';
+        for(i=0;i<(s.characters_in_shot||[]).length;i++){var cn=s.characters_in_shot[i],cc=findC(cn);tags+='<span class="tag '+(hasImg(cc)?'tag-cd':'tag-c')+'">'+esc(cn)+'</span>'}
+        h+='<div class=shot-card><div class=num>'+(s.index+1)+'</div><div class=body>';
+        h+='<div class=title>'+esc(s.title||'')+'</div><div style="margin:4px 0">'+tags+'</div>';
+        h+='<div class=narration>'+esc(s.narration||'')+'</div>';
+        if(s.dialogue) for(i=0;i<s.dialogue.length;i++) h+='<div class=dialogue>'+esc(s.dialogue[i].character)+'：'+esc(s.dialogue[i].line)+'</div>';
+
+        // Image slots
+        h+='<div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap">';
+        for(var ii=0;ii<imgs.length;ii++){var img=imgs[ii],iOk=img.image_path||img.image_url;
+          var igk='si_'+ep.index+'_'+s.index+'_'+ii,iGing=_genning[igk];
+          h+='<div style="flex:1;min-width:90px;max-width:160px;text-align:center'+(iGing?';animation:pulse 1.5s infinite':'')+'">';
+          h+=iOk?'<img src="'+(img.image_path||img.image_url)+'" style="width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:zoom-in" data-act=zoom data-url="'+esc(img.image_path||img.image_url)+'">':('<div style="width:100%;aspect-ratio:9/16;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--muted);border:2px '+(iGing?'solid var(--accent)':'dashed var(--border)')+'">'+(iGing?'生成中':'🎬')+'</div>');
+          h+='<div style="font-size:10px;font-weight:600;margin:2px 0">'+esc(img.label||'图'+(ii+1))+'</div>';
+          h+='<button class=btn-sm data-act=gen data-type=shotimg data-ep='+ep.index+' data-si='+s.index+' data-ii='+ii+(iGing?' disabled':'')+' style="font-size:10px">'+(iGing?'生成中...':(iOk?'重拍':'生成'))+'</button></div>';}
+        h+='</div>';
+
+        // Prompts
+        h+='<details style="margin:4px 0;font-size:11px;color:var(--muted)"><summary style=cursor:pointer>查看提示词</summary>';
+        for(ii=0;ii<imgs.length;ii++){h+='<div style="background:#f9fafb;padding:4px 8px;border-radius:4px;margin:2px 0"><b>'+esc(imgs[ii].label||'')+'</b>: '+esc(imgs[ii].image_prompt||'')+'</div>'}h+='</details>';
+
+        // Actions
+        h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">';
+        if(s.narration||(s.dialogue&&s.dialogue.length)) h+='<button class="btn-sm btn-outline" data-act=gen data-type=audio data-ep='+ep.index+' data-si='+s.index+'>'+(audOk?'重新配音':'生成配音')+'</button>';
+        if(audOk) h+='<span class="dot dot-green">已配音</span><audio src='+s.audio_path+' controls style="width:100%;height:28px;margin-top:4px"></audio>';
+        h+='</div></div></div>';
+      }
+    }
+  }
+  $('content').innerHTML=h;
+
+  // Click delegation
+  $('content').onclick=function(e){
+    var el=e.target.closest('[data-act]');if(!el)return;
+    var act=el.dataset.act,type=el.dataset.type;
+    if(act==='zoom'){
+      var url=el.dataset.url||el.src;if(!url){var img=el.querySelector('img');if(img) url=img.src}if(url) showOverlay('<div class=overlay onclick=hideOverlay()><img src="'+url+'"></div>');
+    }
+    if(act==='gen'){
+      if(type==='scene') confirmGen('scene',el.dataset.name);
+      else if(type==='char') confirmGen('char',el.dataset.name);
+      else if(type==='prop') confirmGen('prop',el.dataset.name);
+      else if(type==='shotimg') confirmGen('shotimg',el.dataset.ep,el.dataset.si,parseInt(el.dataset.ii));
+      else if(type==='audio') confirmGen('audio',el.dataset.ep,el.dataset.si);
+    }
+  };
+}
+
+// ---- Gen functions ----
+async function genOneImgDirect(epI,sI,ii,promptVal){
+  var s=findShot(epI,sI);if(!s)return;var imgs=s.images||[];if(!imgs[ii])return;var img=imgs[ii];
+  var prompt=promptVal||img.image_prompt||'';if(!prompt)return;
+  var igk='si_'+epI+'_'+sI+'_'+ii;setGen(igk);
+  $('status').innerHTML='<b style=color:var(--accent)>生成中...</b> '+esc(s.title||'')+' - '+esc(img.label||'');
+  var fd=new FormData();fd.append('prompt',prompt);fd.append('size','9:16');fd.append('n','1');
+  var r=await fetch('/api/image/generate',{method:'POST',body:fd});var d=await r.json();
+  if(d.success){img.image_url=d.urls[0];img.image_path=d.local_paths[0];render();save();updateStats();}
+  else toast('失败: '+(d.error||''),false);
+  clrGen(igk);$('status').innerHTML='';
+}
+
+async function imgApi(prompt,size,refUrls){
+  var fd=new FormData();fd.append('prompt',prompt);fd.append('size',size);fd.append('n','1');
+  if(refUrls&&refUrls.length) fd.append('ref_urls',refUrls.join(','));
+  var r=await fetch('/api/image/generate',{method:'POST',body:fd});return await r.json();
+}
+
+async function genScene(name,size){
+  var s=findS(name);if(!s||!s.image_prompt)return;
+  $('status').innerHTML='<b style=color:var(--accent)>生成中...</b> '+esc(name);setGen('scene_'+name);
+  var d=await imgApi(s.image_prompt,size||'9:16');
+  if(d.success){s.image_url=d.urls[0];s.image_path=d.local_paths[0];render();save();updateStats();}
+  else toast('失败: '+(d.error||''),false);
+  clrGen('scene_'+name);$('status').innerHTML='';
+}
+
+async function genChar(name,size){
+  var c=findC(name);if(!c||!c.image_prompt)return;
+  $('status').innerHTML='<b style=color:var(--accent)>生成中...</b> '+esc(name);setGen('char_'+name);
+  var d=await imgApi(c.image_prompt,size||'9:16');
+  if(d.success){c.image_url=d.urls[0];c.image_path=d.local_paths[0];render();save();updateStats();}
+  else toast('失败: '+(d.error||''),false);
+  clrGen('char_'+name);$('status').innerHTML='';
+}
+
+async function genProp(name,size){
+  var p=findP(name);if(!p||!p.image_prompt)return;
+  $('status').innerHTML='<b style=color:var(--accent)>生成中...</b> '+esc(name);
+  var d=await imgApi(p.image_prompt,size||'1:1');
+  if(d.success){p.image_url=d.urls[0];p.image_path=d.local_paths[0];render();save();}
+  $('status').innerHTML='';
+}
+
+async function genAudio(epI,sI,voice,speed){
+  var s=findShot(epI,sI);if(!s)return;
+  var text=(s.narration||'')+' '+(s.dialogue||[]).map(function(d){return d.line}).join(' ');
+  if(!text.trim())return;
+  $('status').innerHTML='<b style=color:var(--accent)>生成中...</b> 配音';setGen('audio_'+epI+'_'+sI);
+  var v=voice||'FunAudioLLM/CosyVoice2-0.5B:bella';var sp=speed||'0.85';
+  var fd=new FormData();fd.append('text',text);fd.append('voice',v);fd.append('engine','cosy');fd.append('speed',sp);
+  var r=await fetch('/api/tts',{method:'POST',body:fd});var d=await r.json();
+  if(d.success){s.audio_path=d.path;render();save();updateStats();}
+  clrGen('audio_'+epI+'_'+sI);$('status').innerHTML='';
+}
+
+// ---- Confirmation Modals ----
+function confirmGen(type,a1,a2,a3){
+  if(type==='audio'){confirmAudio(a1,a2);return}
+
+  // Shot image: show modal with reference images from scene + characters
+  if(type==='shotimg'){
+    var s=findShot(a1,a2);if(!s)return;
+    var imgs=s.images||[];var ii=parseInt(a3)||0;var ig=imgs[ii];if(!ig)return;
+    PA={type:'shotimg',a1:a1,a2:a2,ii:ii,refs:[]};
+
+    // Build reference image list
+    var refsHtml='',allRefs=[];
+    // Scene ref
+    if(s.scene){var sc=findS(s.scene);if(sc&&hasImg(sc)) allRefs.push({id:'ref-scene',label:'场景: '+esc(s.scene),url:sc.image_url||sc.image_path,checked:true,thumb:sc.image_path||sc.image_url})}
+    // Character refs from characters_in_shot
+    for(var i=0;i<(s.characters_in_shot||[]).length;i++){var cn=s.characters_in_shot[i],c=findC(cn);if(c&&hasImg(c)) allRefs.push({id:'ref-'+cn,label:'角色: '+esc(cn),url:c.image_url||c.image_path,checked:true,thumb:c.image_path||c.image_url})}
+    // Auto-detect from narration text
+    var shotText=(s.narration||'')+' '+((s.dialogue||[]).map(function(d){return d.character+' '+d.line}).join(' '));
+    for(var i=0;i<(D.characters||[]).length;i++){var cc=D.characters[i];if(!hasImg(cc))continue;if((s.characters_in_shot||[]).indexOf(cc.name)>=0)continue;if(shotText.indexOf(cc.name)>=0){allRefs.push({id:'ref-auto-'+cc.name,label:'角色(自动): '+esc(cc.name),url:cc.image_url||cc.image_path,checked:false,thumb:cc.image_path||cc.image_url})}}
+
+    // Add current image as reference for iterative refinement
+    var curUrl=ig.image_path||ig.image_url;
+    if(curUrl){allRefs.unshift({id:'ref-current',label:'当前图 (微调基准)',url:curUrl,checked:true,thumb:curUrl})}
+
+    for(var i=0;i<allRefs.length;i++){var r=allRefs[i];
+      var isCur=r.id==='ref-current';
+      refsHtml+='<label style="display:flex;align-items:center;gap:10px;padding:8px;border:'+(isCur?'2px solid var(--accent)':'1px solid var(--border)')+';border-radius:8px;margin-bottom:6px;cursor:pointer"><input type=checkbox id='+r.id+' '+(r.checked?'checked':'')+' onchange="window._toggleRef()" style="width:auto"><img src="'+r.thumb+'" style="width:64px;height:36px;object-fit:cover;border-radius:4px"><span style="font-size:13px'+(isCur?';color:var(--accent);font-weight:600':'')+'">'+r.label+'</span></label>';
+    }
+    window._allRefs=allRefs;
+
+    var m='<div class=modal-bg onclick=hideOverlay()></div><div class=modal-box style="max-width:560px">';
+    m+='<h3 style="font-size:16px;margin-bottom:4px">'+(curUrl?'重新生成':'生成')+'分镜图: '+esc(s.title||'')+' - '+esc(ig.label||'')+'</h3>';
+    if(curUrl){
+      m+='<div style="margin-bottom:12px"><img src="'+curUrl+'" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;border:1px solid var(--border)"></div>';
+    }
+    m+='<p class=muted style="font-size:11px;margin-bottom:12px">场景='+esc(s.scene||'无')+' | 角色='+esc((s.characters_in_shot||[]).join(',')||'无')+'</p>';
+    m+='<label style="font-weight:600;font-size:13px">生图提示词</label>';
+    m+='<textarea id=modal-prompt style="min-height:100px;width:100%;font-size:13px;margin-top:4px">'+esc(ig.image_prompt||'')+'</textarea>';
+    if(allRefs.length>0){
+      m+='<label style="font-weight:600;font-size:13px;margin-top:12px;display:block">参考图 <span class=muted>(勾选引用，可保持角色场景一致性)</span></label>';
+      m+=refsHtml;
+    }else{
+      m+='<p class=muted style="margin-top:12px">先出场景图和角色图，再生成分镜图可保持一致性</p>';
+    }
+    m+='<label style="font-weight:600;font-size:13px;margin-top:8px">尺寸</label><select id=modal-size style="margin-top:4px;width:100%"><option value=9:16 selected>9:16 竖屏</option><option value=16:9>16:9 横屏</option><option value=1:1>1:1 方形</option></select>';
+    m+='<div style="margin-top:8px;padding:8px;background:#f9fafb;border-radius:8px;font-size:11px;color:var(--muted)">入参: size=9:16 | model=gpt-image-2 | 参考图=<b id=modal-ref-count>'+allRefs.filter(function(x){return x.checked}).length+'</b>张</div>';
+    m+='<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px"><button class=btn-outline onclick=hideOverlay()>取消</button><button onclick=doGen()>确认生成</button></div></div>';
+    showOverlay(m);
+    PA.refs=allRefs.filter(function(x){return x.checked}).map(function(x){return x.url});
+    return;
+  }
+
+  // Scene/char/prop: simple size selector
+  var sz=(type==='prop')?'1:1':'9:16';
+  var sizes=[['9:16','9:16 竖屏（抖音）'],['16:9','16:9 横屏'],['1:1','1:1 方形']];
+  var opts='';for(var i=0;i<sizes.length;i++) opts+='<option value="'+sizes[i][0]+'"'+(sizes[i][0]===sz?' selected':'')+'>'+sizes[i][1]+'</option>';
+  var label={scene:'场景图',char:'角色图',prop:'道具图'}[type]||'生成';
+  PA={type:type,a1:a1,a2:a2};
+  showOverlay('<div class=modal-bg onclick=hideOverlay()></div><div class=modal-box>'
+    +'<h3 style="font-size:16px;margin-bottom:8px">确认生成 '+label+'</h3>'
+    +'<label style="font-weight:600;font-size:13px">尺寸</label><select id=modal-size style="margin-top:4px;margin-bottom:8px;width:100%">'+opts+'</select>'
+    +'<p style="font-size:13px">model=gpt-image-2 | 确定调用 API 生成？</p>'
+    +'<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">'
+    +'<button class=btn-outline onclick=hideOverlay()>取消</button><button onclick=doGen()>确认</button></div></div>');
+}
+
+function confirmAudio(epI,sI){
+  var s=findShot(epI,sI);if(!s)return;PA={type:'audio',a1:epI,a2:sI};
+  var voices=[['FunAudioLLM/CosyVoice2-0.5B:bella','Bella 激情女声（深沉悬疑）'],['FunAudioLLM/CosyVoice2-0.5B:anna','Anna 沉稳女声'],['FunAudioLLM/CosyVoice2-0.5B:claire','Claire 温柔女声'],['FunAudioLLM/CosyVoice2-0.5B:diana','Diana 欢快女声'],['FunAudioLLM/CosyVoice2-0.5B:benjamin','Benjamin 低沉男声'],['FunAudioLLM/CosyVoice2-0.5B:charles','Charles 磁性男声'],['FunAudioLLM/CosyVoice2-0.5B:alex','Alex 沉稳男声']];
+  var opts='';for(var i=0;i<voices.length;i++) opts+='<option value="'+voices[i][0]+'">'+voices[i][1]+'</option>';
+  var ds=(s.character==='旁白'?'0.85':'0.95');
+  showOverlay('<div class=modal-bg onclick=hideOverlay()></div><div class=modal-box style="max-width:480px">'
+    +'<h3 style="font-size:16px;margin-bottom:4px">生成配音: '+esc(s.title||'')+'</h3>'
+    +'<p class=muted style="font-size:11px">角色='+esc(s.character||'旁白')+' | 文本='+((s.narration||'').length+(s.dialogue||[]).reduce(function(a,d){return a+d.line.length},0))+'字</p>'
+    +'<label style="font-weight:600;font-size:13px">音色</label><select id=modal-voice style="margin-top:4px;width:100%">'+opts+'</select>'
+    +'<label style="font-weight:600;font-size:13px;margin-top:8px;display:block">语速 <span class=muted id=modal-speed-label>'+ds+'x</span></label>'
+    +'<input type=range id=modal-speed min=0.5 max=1.5 step=0.05 value="'+ds+'" oninput="var e=document.getElementById(\"modal-speed-label\");if(e)e.textContent=this.value+\"x\"" style="width:100%;margin-top:4px">'
+    +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted)"><span>0.5x 慢</span><span>1.0x 正常</span><span>1.5x 快</span></div>'
+    +'<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">'
+    +'<button class=btn-outline onclick=hideOverlay()>取消</button><button onclick=doGen()>确认生成</button></div></div>');
+}
+
+function confirmBatch(type){
+  if(!D)return;var count=0,label='';
+  if(type==='scene'){for(var i=0;i<(D.scenes||[]).length;i++) if(D.scenes[i].image_prompt&&!hasImg(D.scenes[i])) count++;label='场景图'}
+  if(type==='char'){for(var i=0;i<(D.characters||[]).length;i++) if(D.characters[i].image_prompt&&!hasImg(D.characters[i])) count++;label='角色图'}
+  if(type==='shot'){for(var ei=0;ei<(D.episodes||[]).length;ei++) for(var si=0;si<(D.episodes[ei].shots||[]).length;si++){var imgs=D.episodes[ei].shots[si].images||[];for(var ii=0;ii<imgs.length;ii++) if(imgs[ii].image_prompt&&!hasImg(imgs[ii])) count++}label='分镜图'}
+  if(type==='audio'){for(var ei=0;ei<(D.episodes||[]).length;ei++) for(var si=0;si<(D.episodes[ei].shots||[]).length;si++) if(!D.episodes[ei].shots[si].audio_path) count++;label='配音'}
+  if(!count){toast('没有需要生成的'+label);return}
+  PA={type:'batch',batch:type};
+  showOverlay('<div class=modal-bg onclick=hideOverlay()></div><div class=modal-box><h3>批量生成 '+label+'</h3><p style="margin-top:8px">将生成 <b>'+count+'</b> 个'+label+'，每次调用 API。</p><div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px"><button class=btn-outline onclick=hideOverlay()>取消</button><button onclick=doGen()>确认生成 '+count+' 个</button></div></div>');
+}
+
+// Reference toggle
+window._toggleRef=function(){
+  if(!PA||PA.type!=='shotimg')return;
+  var refs=[];
+  for(var i=0;i<(window._allRefs||[]).length;i++){
+    var r=window._allRefs[i];var cb=document.getElementById(r.id);if(cb&&cb.checked) refs.push(r.url)
+  }
+  PA.refs=refs;
+  var ce=document.getElementById('modal-ref-count');if(ce) ce.textContent=refs.length;
+};
+
+// ---- Exec ----
+async function doGen(){
+  if(!PA)return;
+  var t=PA.type,a1=PA.a1,a2=PA.a2,batch=PA.batch;
+  // Capture modal values
+  var sz='',se=$('modal-size');if(se) sz=se.value;
+  var vo='',ve=$('modal-voice');if(ve) vo=ve.value;
+  var sp='',sl=$('modal-speed');if(sl) sp=sl.value;
+  var prompt='',pe=$('modal-prompt');if(pe) prompt=pe.value;
+  // Collect refs for shotimg
+  if(t==='shotimg'&&window._toggleRef) window._toggleRef();
+  var ii=PA.ii,refs=PA.refs||[];
+  hideOverlay();
+  if(t==='batch'){await batchGen(batch);return}
+  if(t==='scene') await genScene(a1,sz);
+  else if(t==='char') await genChar(a1,sz);
+  else if(t==='prop') await genProp(a1,sz);
+  else if(t==='shotimg') await genOneImgDirect(a1,a2,ii,prompt,refs,sz);
+  else if(t==='audio') await genAudio(a1,a2,vo,sp);
+}
+
+// Update genOneImgDirect to accept refs and size
+async function genOneImgDirect(epI,sI,ii,promptVal,refs,size){
+  var s=findShot(epI,sI);if(!s)return;var imgs=s.images||[];if(!imgs[ii])return;var img=imgs[ii];
+  var prompt=promptVal||img.image_prompt||'';if(!prompt)return;
+  var igk='si_'+epI+'_'+sI+'_'+ii;setGen(igk);
+  $('status').innerHTML='<b style=color:var(--accent)>生成中...</b> '+esc(s.title||'')+' - '+esc(img.label||'');
+  var fd=new FormData();fd.append('prompt',prompt);fd.append('size',size||'9:16');fd.append('n','1');
+  if(refs&&refs.length) fd.append('ref_urls',refs.join(','));
+  var r=await fetch('/api/image/generate',{method:'POST',body:fd});var d=await r.json();
+  if(d.success){img.image_url=d.urls[0];img.image_path=d.local_paths[0];render();save();updateStats();}
+  else toast('失败: '+(d.error||''),false);
+  clrGen(igk);$('status').innerHTML='';
+}
+
+async function batchGen(type){
+  if(!D)return;
+  if(type==='scene') for(var i=0;i<(D.scenes||[]).length;i++) if(D.scenes[i].image_prompt&&!hasImg(D.scenes[i])) await genScene(D.scenes[i].name);
+  if(type==='char') for(var i=0;i<(D.characters||[]).length;i++) if(D.characters[i].image_prompt&&!hasImg(D.characters[i])) await genChar(D.characters[i].name);
+  if(type==='shot'){for(var ei=0;ei<(D.episodes||[]).length;ei++) for(var si=0;si<(D.episodes[ei].shots||[]).length;si++){var imgs=D.episodes[ei].shots[si].images||[];for(var ii=0;ii<imgs.length;ii++) if(imgs[ii].image_prompt&&!hasImg(imgs[ii])) await genOneImgDirect(D.episodes[ei].index,D.episodes[ei].shots[si].index,ii);}}
+  if(type==='audio') for(var ei=0;ei<(D.episodes||[]).length;ei++) for(var si=0;si<(D.episodes[ei].shots||[]).length;si++) if(!D.episodes[ei].shots[si].audio_path) await genAudio(D.episodes[ei].index,D.episodes[ei].shots[si].index);
+  toast('完成');
+}
+
+function updateStats(){
+  if(!D)return;
+  var sc=(D.scenes||[]).length,scDone=(D.scenes||[]).filter(hasImg).length;
+  var ch=(D.characters||[]).length,chDone=(D.characters||[]).filter(hasImg).length;
+  var sh=0,shDone=0,auDone=0;
+  for(var ei=0;ei<(D.episodes||[]).length;ei++) for(var si=0;si<(D.episodes[ei].shots||[]).length;si++){
+    var s=D.episodes[ei].shots[si],imgs=s.images||[];
+    sh+=imgs.length;for(var ii=0;ii<imgs.length;ii++) if(hasImg(imgs[ii])) shDone++;
+    if(s.audio_path) auDone++;
+  }
+  $('b-scenes').textContent=scDone+'/'+sc;$('b-chars').textContent=chDone+'/'+ch;
+  $('b-shots').textContent=shDone+'/'+sh;$('b-audio').textContent=auDone+'/'+sh;
+  var total=sc+ch+sh+sh,done=scDone+chDone+shDone+auDone;
+  $('progress-fill').style.width=(total>0?done/total*100:0)+'%';
+  var val=[scDone>=sc&&sc>0,chDone>=ch&&ch>0,shDone>=sh&&sh>0,auDone>=sh&&sh>0,auDone>=sh&&sh>0&&shDone>=sh];
+  var ids=['s-scenes','s-chars','s-shots','s-audio','s-export'];
+  for(var i=0;i<ids.length;i++){var el=$(ids[i]);if(el) el.className='step '+(val[i]?'step-done':(i===0||val[i-1]?'step-active':'step-pending'));}
+}
+
+async function save(){if(!D||!D.id)return;await fetch('/api/script/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(D)})}
+
+async function downloadEp(epIdx){
+  if(!D)return;var ep=D.episodes.find(function(e){return +e.index===+epIdx});if(!ep){toast('找不到该集',false);return}
+  $('status').textContent='打包下载中...';
+  try{
+    var r=await fetch('/api/script/export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:D.title,episode:ep,characters:D.characters,scenes:D.scenes})});
+    var d=await r.json();if(d.success) window.open(d.path);else toast('导出失败',false);
+  }catch(e){toast('导出失败',false)}
+  $('status').textContent='';
+}
+
+async function exportMP4(){
+  var scs=[];
+  for(var ei=0;ei<(D.episodes||[]).length;ei++) for(var si=0;si<(D.episodes[ei].shots||[]).length;si++){
+    var s=D.episodes[ei].shots[si],imgs=s.images||[],firstImg=imgs.length>0?(imgs[0].image_path||imgs[0].image_url):'';
+    scs.push({image:firstImg,audio:s.audio_path});
+  }
+  if(!scs.some(function(x){return x.audio})){toast('请先生成配音',false);return}
+  var r=await fetch('/api/story/export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scenes:scs})});
+  var d=await r.json();if(d.success) window.open(d.path);
+}
+
+loadList();loadScript('demo');
+</script>
+{% endblock %}

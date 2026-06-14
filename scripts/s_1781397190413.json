@@ -1,0 +1,139 @@
+{
+  "id": "s_1781397190413",
+  "title": "朱雀街夜谍",
+  "genre": "古风悬疑 / 权谋 / 情感对决",
+  "characters": [
+    {
+      "name": "林小宛",
+      "description": "二十出头的唐代女子，身形纤细却步伐利落，常穿素色襦裙，外罩浅青披帛，发髻简单，额前有几缕被风吹散的碎发。她表面温婉克制，眼神却极稳，善于观察细节，言语间带着不动声色的锋利，像一把藏在袖中的短刃。她不是单纯的茶馆女子，而是暗中追查朝局阴影的人。",
+      "image_prompt": "Young Tang dynasty woman in a plain light-colored ruqun with pale blue shawl, delicate but alert expression, loose strands of hair, standing in a warm-lit ancient Chang'an tea house, photorealistic cinematic, 9:16 vertical portrait"
+    },
+    {
+      "name": "顾沉舟",
+      "description": "二十多岁的白衣少年，身姿清瘦挺拔，长发束冠，衣袍干净得近乎不染尘埃。他外表安静克制，眉眼清冷，指尖却异常稳，能从抚琴的从容里看出深藏的戒备与计算。琥珀色的眼睛在烛火下像被封住的秘密，既像文弱琴客，也像随时会拔刀的危险人物。",
+      "image_prompt": "White-robed Tang dynasty young man with long tied hair, slender upright posture, holding and playing a guqin, amber eyes reflecting candlelight, calm yet dangerous expression, cinematic ancient Chinese tea house, photorealistic, 9:16 vertical portrait"
+    },
+    {
+      "name": "太子李承允",
+      "description": "大唐太子，年约二十七八，衣着华贵却不张扬，眉目端正，神情沉静，举手投足间有天生的礼度与权威。他并非轻浮之主，反而敏锐多疑，长期生活在权力中心使他习惯了试探与被试探，面对危险时能迅速压住情绪。",
+      "image_prompt": "Tang dynasty crown prince in elegant dark brocade robes, composed face, royal authority, lantern-lit palace corridor at night, guarded and intelligent expression, photorealistic cinematic, 9:16 vertical portrait"
+    },
+    {
+      "name": "沈折羽",
+      "description": "三十岁上下的内廷侍卫统领，身材高大，眉骨锋利，常着深色甲衣，行动沉稳如影。他忠于太子，却并不盲忠，习惯以最少的动作处理最危险的局面。说话简短，眼神总在第一时间扫过周围退路。",
+      "image_prompt": "Tang dynasty imperial guard commander in dark armor, tall and stern, sharp brows, night palace setting with lanterns and shadowed corridors, vigilant expression, photorealistic cinematic, 9:16 vertical portrait"
+    }
+  ],
+  "scenes": [
+    {
+      "index": 0,
+      "title": "朱雀街灯起",
+      "narration": "夜幕像一层缓慢落下的墨，刚刚覆盖长安城时，朱雀大街两侧的灯笼便一盏接一盏亮了起来。橘红色的光映在青石路面上，像流动的火，把高耸的坊墙、飞檐和匾额都染出一层温柔却不容靠近的轮廓。街上行人不算多，却也不断有马车和挑灯的小贩从光影里穿过，车轮碾过石板时发出沉闷而均匀的声响。林小宛站在街口，安静地看了一眼那一串延伸到远处的灯火，随后把目光收回到自己的脚下。她像是刚从风里走来，衣袖上还带着夜露的冷意，可当她抬起头时，神情已经平静得没有一丝波澜。她知道今夜不会平静，长安的灯越亮，藏在灯下的影子就越深。她沿着朱雀大街缓步前行，目光掠过每一扇半掩的门、每一处停驻的人影，像是在寻找什么，也像是在等待什么终于自己现身。",
+      "dialogue": [
+        {
+          "character": "林小宛",
+          "line": "今夜的长安看起来很安稳，可越是这样安稳，越说明有人在暗处做了手脚。"
+        }
+      ],
+      "image_prompt": "Ancient Chang'an city at night, Zhuque Avenue lined with rows of glowing red lanterns, Tang dynasty architecture, warm orange light on stone street, cinematic wide shot, photorealistic, 16:9 widescreen"
+    },
+    {
+      "index": 1,
+      "title": "悦来茶馆",
+      "narration": "悦来茶馆的门被轻轻推开时，门轴发出一声极低的吱呀，像是怕惊扰了屋里的人。热气混着茶香和炭火的暖意迎面扑来，瞬间把外头的夜风挡在门外。屋内并不喧闹，木桌木椅摆得整齐，几名茶客围着炉火低声说话，碗盖轻碰茶盏的声响清清落落，反而更显得这间茶馆有种刻意维持的安静。林小宛站在门口，先让目光适应屋里的光线，才慢慢扫过每一张桌子。她拢了拢被风吹散的碎发，肩头的薄披帛随着动作轻轻一晃，整个人看上去像是寻常晚归的女子，可她的视线却比任何人都清醒。角落里，一位白衣少年正低头抚琴，修长的手指在琴弦间游走，音色清越得像夜里贴着石面流过的水。那琴声没有刻意引人注意，却偏偏让人无法忽视，仿佛他并不是坐在茶馆里，而是早已与这座城里的月色融为一体。林小宛没有迟疑，径直走过去，在他对面坐下。她从袖中取出一枚玉佩，轻轻放在桌上，玉面在灯下泛出一丝温润的光。少年指尖微不可察地一顿，琴声在最后一个尾音上断开，空气也像突然收紧了一分。那一瞬间，屋里其他茶客似乎都没有察觉，只有他们两人知道，这枚玉佩已经把今夜真正的故事推到了桌面上。",
+      "dialogue": [
+        {
+          "character": "林小宛",
+          "line": "这是你的东西，忘在城门口了。"
+        },
+        {
+          "character": "顾沉舟",
+          "line": "你既然把它送回来，就说明你一路都看见了我，也看见了我不该让人看见的事。"
+        }
+      ],
+      "image_prompt": "Interior of a Tang dynasty tea house, wooden tables and stools, charcoal stove boiling tea, warm lantern light through paper windows, a young woman in plain ruqun entering and sitting across from a white-robed guqin player, cinematic atmosphere, photorealistic, 16:9 widescreen"
+    },
+    {
+      "index": 2,
+      "title": "琴声断处",
+      "narration": "顾沉舟慢慢抬起头时，烛火正好在他眼底晃了一下，那双琥珀色的眼睛像是被酒色、月色和刀锋一同浸过，平静得近乎冷漠，却又藏着一层随时会碎裂的戒备。他并没有立刻去拿桌上的玉佩，而是先看了一眼林小宛放在桌边的手。那只手很稳，指尖干净，指节却带着长年练习之后才会有的薄茧。茶馆里原本轻缓的气息忽然变得有些发紧，连炉火偶尔炸开的细微声响都像在替他们遮掩。林小宛端起茶盏，低头轻啜了一口，神态平静得像只是在与一位陌生琴客闲谈。可她说出口的话，却像一支骤然离弦的箭，干净利落地钉进了桌面。顾沉舟的神色终于变了，他的眉骨微微一动，目光从玉佩移到她脸上，像在重新估量这个女子究竟知道多少。窗外有风吹过，纸窗轻轻震了一下，映在上面的灯影也跟着晃动，像谁的心绪被无声拨乱。林小宛放下茶盏时，杯底与桌面相碰，发出一声几乎可以忽略的轻响，但她下一句话却彻底打破了茶馆里最后一点伪装。她不再是那个偶然来送玉佩的过路人，她是追着血线一路走来的人，也是唯一敢在长安城里，直接问出那句话的人。",
+      "dialogue": [
+        {
+          "character": "顾沉舟",
+          "line": "你跟了我多久？"
+        },
+        {
+          "character": "林小宛",
+          "line": "从你踏入长安的第一步起，所以你不用再试探我，因为我比你更早知道你会来这里。"
+        },
+        {
+          "character": "林小宛",
+          "line": "告诉我，你为何要刺杀太子？"
+        }
+      ],
+      "image_prompt": "Close-up confrontation in a dim Tang dynasty tea house, woman setting down tea cup with sharp gaze, white-robed young man with amber eyes reacting in candlelight, tense half-shadow lighting, cinematic Chinese historical suspense, photorealistic, 16:9 widescreen"
+    },
+    {
+      "index": 3,
+      "title": "灯下追影",
+      "narration": "顾沉舟没有回答。他只是伸手收起玉佩，动作快得像一缕风掠过桌面。下一瞬，茶馆外忽然传来整齐而沉重的脚步声，像铁甲踏过石街，连木门都被震得轻轻发响。沈折羽带着禁军从街口包围过来，灯笼的光从门缝里切进屋内，照出一片骤然紧张的明暗交界。茶客们惊慌地站起，又被低喝声按回原位，空气里混进了汗味、炭火味和刀鞘摩擦的冰冷金属味。林小宛眼神一凛，立刻明白自己被人提前算进了局里，而顾沉舟显然也早就预料到这一步。他猛地一抬手，琴弦在掌下震出一声短促的裂响，随后整个人向后翻出，轻巧地掠过桌椅之间的缝隙。茶馆里顿时乱作一团，杯盏翻倒，茶汤泼上地面，热气混着惊叫一起翻滚起来。林小宛没有追喊，只是迅速侧身避开一名冲进来的禁军，手掌按住桌沿借力翻出，衣摆扫过一盏摇晃的灯火。她知道现在不能让任何人看见自己和顾沉舟真正的关系，否则今晚所有线索都会被一刀斩断。顾沉舟冲出后门时，回头看了她一眼，那一眼很短，却像把一个未说出口的真相硬生生压回喉间。两人一前一后冲入长安夜色，朱雀街的灯笼在风中轻晃，光影拉长了他们的身形，也拉长了追捕者的脚步声。禁军的呼喝声、马蹄声、远处更鼓声交织在一起，整座城像突然醒来，开始吞咽两个在夜色里奔逃的人。",
+      "dialogue": [
+        {
+          "character": "沈折羽",
+          "line": "封住街口，任何人都不许放走，今夜茶馆里的人，一个都不能少。"
+        },
+        {
+          "character": "顾沉舟",
+          "line": "如果你真想知道答案，就别让他们把我带回去。"
+        },
+        {
+          "character": "林小宛",
+          "line": "你若敢骗我，我会亲手把你交给他们。可你若没有骗我，我今晚就带你活着离开这里。"
+        }
+      ],
+      "image_prompt": "Chaotic escape from a Tang dynasty tea house at night, imperial guards storming in through lantern-lit doorway, white-robed young man fleeing through back exit, woman vaulting over table, flying tea cups and red lantern shadows, cinematic action scene, photorealistic, 16:9 widescreen"
+    },
+    {
+      "index": 4,
+      "title": "太子真相",
+      "narration": "他们最终没有逃出长安，而是被逼进了一处靠近宫墙的旧廊下。那里灯火稀疏，只有风吹过檐角时发出的细响，像某种压低了呼吸的提醒。顾沉舟停下脚步时，胸口起伏得比先前明显，他看了一眼仍然追在远处的禁军，却没有拔刀，只是将那枚玉佩举到灯下。玉佩内侧竟藏着极细的一道裂纹，裂纹间嵌着一个几乎看不清的印记，那是只有宫中密档才会用到的暗记。林小宛看见那道印记时，呼吸微微一滞，脑中许多零散的线索忽然像被一根线串了起来：城门口失踪的供奉、茶馆里莫名出现的盯梢、太子车驾前一日临时更换的随从，还有顾沉舟入城时刻意显露给她看的行踪。就在她心神动摇的一瞬，廊下另一侧的阴影里，太子李承允缓缓走了出来，身后只跟着沈折羽和两名近侍。灯火照在他的脸上，没有半分慌乱，甚至带着一种早已看穿局势的平静。林小宛下意识将身子移到顾沉舟前方，像是防他暴起，也像是防自己再进一步就会相信某个可怕的答案。太子并没有立刻责罚谁，只是看着顾沉舟，语气低而稳，像是在对一把已经拔出鞘却仍未见血的刀说话。他说出的话，彻底翻转了今晚所有人的位置：真正该被追问的，不是刺客为何入城，而是有人借着刺杀的名义，想把太子逼死在长安灯下。顾沉舟终于垂下眼，眼底那层冷意像冰面裂开，露出一瞬间极深的疲惫与愤怒。林小宛看着他，忽然明白自己追了那么久的，不是一个要杀太子的人，而是一个被迫背着刺杀名头的人。她的手还按在袖口，指尖却慢慢放松下来，因为真相已经不是刀刃，而是一个更大的局正在她面前缓缓展开。",
+      "dialogue": [
+        {
+          "character": "太子李承允",
+          "line": "你们以为今夜是你们在追真相，其实从你们踏进朱雀街开始，真正的局就已经开始了。"
+        },
+        {
+          "character": "顾沉舟",
+          "line": "我不是来杀你的，我是来把那封假诏书带回去，因为只有它能证明是谁在借你的命清除异己。"
+        },
+        {
+          "character": "林小宛",
+          "line": "所以我一路追的，不是刺客，而是替罪羊。"
+        }
+      ],
+      "image_prompt": "Night corridor near ancient palace walls in Chang'an, prince revealed from shadows with guards, white-robed young man holding a jade pendant with hidden mark, woman standing protectively, tense lantern light and deep shadows, cinematic historical reveal, photorealistic, 16:9 widescreen"
+    },
+    {
+      "index": 5,
+      "title": "灯灭人明",
+      "narration": "风从宫墙上方缓缓吹过，吹得灯火一明一灭，像整座长安都在屏息旁听。太子命沈折羽退后半步，随后亲手接过那枚玉佩，指腹在裂纹处停了一瞬，神色第一次显出难以掩饰的沉重。顾沉舟站在原地，没有再退，也没有再逃，他像是终于等到了一个可以不必继续伪装的时刻。林小宛站在他们之间，目光从太子移到顾沉舟，最后落在那枚小小的玉佩上，仿佛看见自己一路追查来的不是一段偶然，而是一张早就铺开的网。太子低声道出真相：朝中有人伪造密诏，意图借太子遇刺之名逼宫，而顾沉舟原本是奉命护送证据入城的暗使，却在途中被人调包、伏击，才落得满城追捕。真正的幕后之人远在朝堂，却把刀先递到了街巷里。林小宛听完后很久没有说话，直到远处更鼓再次敲响，她才轻轻吐出一口气，像是把一路积在胸口的寒意终于放下。顾沉舟看向她，眼神不再只是戒备，而多了一层近乎郑重的请求。他知道今夜之后，长安不会立刻恢复平静，他也不会立刻洗清所有污名，但至少有人愿意站在真相这一边。灯笼在风里微微摇摆，光落在每个人脸上都不再那么锋利，仿佛天亮之前，黑暗已经开始松动。林小宛最终抬起头，对太子，也对顾沉舟，给出了自己的选择。她不是要做旁观者，她要做把真相送到天明的人。于是这场始于追问的夜谈，终于在沉默里有了答案：有人失去伪装，有人重获信任，而长安城里最深的阴影，也将在下一次日出之前被撕开一道口子。",
+      "dialogue": [
+        {
+          "character": "太子李承允",
+          "line": "今夜之后，长安会有很多人想要你们的命，所以从现在起，你们要么站到我这边，要么永远消失在灯火里。"
+        },
+        {
+          "character": "顾沉舟",
+          "line": "我可以背负骂名，但我不能让真正的凶手继续借着我的名字活下去。"
+        },
+        {
+          "character": "林小宛",
+          "line": "我帮你们，不是因为我相信任何一张脸，而是因为我相信我亲眼看见的真相。"
+        }
+      ],
+      "image_prompt": "Cinematic final night scene near palace wall in Tang dynasty Chang'an, lanterns flickering in the wind, prince holding jade pendant, white-robed man standing resolute, woman facing both with calm determination, deep shadows and warm light, photorealistic, 16:9 widescreen"
+    }
+  ],
+  "draft": true,
+  "updated_at": 1781397244
+}

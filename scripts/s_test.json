@@ -1,0 +1,15 @@
+{
+  "id": "s_test",
+  "title": "测试剧本",
+  "summary": "大纲",
+  "characters": [
+    {
+      "name": "张三",
+      "description": "侠客",
+      "image_prompt": "a swordsman"
+    }
+  ],
+  "scenes": [],
+  "props": [],
+  "updated_at": 1781396193
+}

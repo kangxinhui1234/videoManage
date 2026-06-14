@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}任务管理 - AI Studio{% endblock %}
+{% block nav_tasks %}active{% endblock %}
+
+{% block content %}
+<h1>任务管理</h1>
+
+<div class="flex-row" style="margin-bottom:16px">
+  <select id="filter" onchange="loadTasks()" style="width:auto">
+    <option value="">全部类型</option>
+    <option value="image">图片</option>
+    <option value="video">视频</option>
+  </select>
+  <button class="btn-outline" onclick="loadTasks()">刷新</button>
+  <span class="muted" id="pending-count"></span>
+</div>
+
+<div id="task-list"></div>
+<div id="task-empty" class="empty" style="display:none">暂无任务记录</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let pollTimer=null
+
+async function loadTasks(){
+  const type=document.getElementById('filter').value
+  const resp=await fetch('/api/tasks?type='+type)
+  const tasks=await resp.json()
+  renderTasks(tasks)
+  // auto-refresh if there are pending video tasks
+  const hasPending=tasks.some(t=>t.type==='video'&&(t.status==='queued'||t.status==='in_progress'))
+  if(hasPending && !pollTimer){
+    pollTimer=setInterval(loadTasks,5000)
+  }else if(!hasPending && pollTimer){
+    clearInterval(pollTimer);pollTimer=null
+  }
+  const count=tasks.filter(t=>t.type==='video'&&(t.status==='queued'||t.status==='in_progress')).length
+  const el=document.getElementById('pending-count')
+  el.textContent=count>0 ? count+' 个视频任务处理中...' : ''
+}
+
+function renderTasks(tasks){
+  const el=document.getElementById('task-list')
+  const empty=document.getElementById('task-empty')
+  if(!tasks.length){el.innerHTML='';empty.style.display='';return}
+  empty.style.display='none'
+  el.innerHTML=tasks.map(t=>`
+    <div class="card" style="padding:16px">
+      <div class="flex-row" style="justify-content:space-between">
+        <div>
+          <span class="tag tag-${t.status||'queued'}">${statusLabel(t.status)}</span>
+          <strong style="margin-left:8px">${t.type==='video'?'视频':'图片'}</strong>
+          <span class="muted" style="margin-left:8px">${t.model}</span>
+        </div>
+        <span class="muted">${new Date(t.created_at*1000).toLocaleString('zh-CN')}</span>
+      </div>
+      <div style="margin-top:8px">
+        <span style="color:var(--muted)">提示词：</span>${escapeHtml(t.prompt||'')}
+      </div>
+      ${t.type==='video' && t.duration ? `<div><span class="muted">时长：</span>${t.duration}s &nbsp; 画幅：${t.aspect_ratio||'-'}</div>` : ''}
+      ${t.size ? `<div><span class="muted">尺寸：</span>${t.size}</div>` : ''}
+      ${t.video_url ? `
+        <div style="margin-top:8px">
+          <video src="${toUrl(t.local_path)||t.video_url}" class="result-video" controls style="max-height:300px"></video>
+          <div style="margin-top:4px"><a href="${toUrl(t.local_path)||t.video_url}" class="btn btn-sm" style="text-decoration:none">下载</a></div>
+        </div>` : ''}
+      ${t.urls && t.urls.length ? `
+        <div class="grid3" style="margin-top:8px">
+          ${t.urls.map((u,i)=>`<img src="${toUrl(t.local_path)||u}" class="result-img" onclick="window.open('${toUrl(t.local_path)||u}')" loading="lazy">`).join('')}
+        </div>` : ''}
+      ${t.error ? `<div style="color:var(--danger);margin-top:4px">错误：${escapeHtml(t.error)}</div>` : ''}
+    </div>
+  `).join('')
+}
+
+function statusLabel(s){
+  const map={queued:'排队中',in_progress:'处理中',completed:'已完成',failed:'失败'}
+  return map[s]||s||'未知'
+}
+
+function escapeHtml(t){
+  if(t==null) return ''
+  if(typeof t!=='string') t=JSON.stringify(t)
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+function toUrl(p){
+  // Convert absolute Windows path or relative path to server URL
+  if(!p) return ''
+  if(p.startsWith('/output/')) return p  // already correct
+  if(p.includes('output')) {
+    const idx=p.indexOf('output')
+    return '/'+p.substring(idx).replace(/\\\\/g,'/')
+  }
+  return p
+}
+
+// initial load + auto-refresh
+loadTasks()
+</script>
+{% endblock %}

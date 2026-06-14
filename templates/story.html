@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% block title %}AI 说书 - AI Studio{% endblock %}
+{% block nav_story %}active{% endblock %}
+
+{% block content %}
+<h1>AI 说书</h1>
+<p class="muted" style="margin-bottom:16px">CosyVoice 2（真人级）+ Edge TTS（免费）。可先在图库生成配图再引用。</p>
+
+<div class="grid2">
+  <!-- Left: input -->
+  <div class="card">
+    <label>故事文本 <span class="muted">（空行拆分段落）</span></label>
+    <textarea id="story-text" style="min-height:180px" placeholder="粘贴故事内容...&#10;空行自动拆分为段落&#10;&#10;夜幕降临，长安城华灯初上。&#10;&#10;林小宛推开茶馆的门。&#10;&#10;角落里坐着一位白衣少年。"></textarea>
+
+    <div class="grid2" style="gap:8px;margin-top:12px">
+      <div>
+        <label>TTS 引擎</label>
+        <select id="tts-engine" onchange="onEngineChange()" style="display:none">
+          <option value="cosy" selected>CosyVoice 2（真人级）</option>
+        </select>
+      </div>
+      <div>
+        <label>默认角色音色</label>
+        <select id="tts-voice">
+          <optgroup label="CosyVoice 2（真人级）">
+            <option value="FunAudioLLM/CosyVoice2-0.5B:anna" data-engine="cosy" selected>Anna — 温柔女声</option>
+            <option value="FunAudioLLM/CosyVoice2-0.5B:bella" data-engine="cosy">Bella — 知性女声</option>
+            <option value="FunAudioLLM/CosyVoice2-0.5B:alex" data-engine="cosy">Alex — 沉稳男声</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+
+    <details style="margin-top:12px">
+      <summary style="cursor:pointer;font-weight:600;font-size:13px">段落角色音色（可选，按段分配）</summary>
+      <textarea id="scene-casting" style="min-height:60px;margin-top:8px" placeholder="1=Anna-温柔&#10;2=Alex-沉稳&#10;3=晓晓-温柔"></textarea>
+    </details>
+
+    <details style="margin-top:8px">
+      <summary style="cursor:pointer;font-weight:600;font-size:13px">段落配图（可选）</summary>
+      <textarea id="scene-images" style="min-height:60px;margin-top:8px" placeholder="每行一个图片URL"></textarea>
+    </details>
+
+    <div class="flex-row" style="margin-top:16px">
+      <button onclick="generateStory()" id="story-btn">
+        <span class="spinner" id="story-spin"></span> 生成说书配音
+      </button>
+      <button class="btn-outline" onclick="exportMP4()" id="export-btn" style="display:none">导出 MP4</button>
+      <button class="btn-outline" onclick="recoverAudio()" style="font-size:12px">恢复最近音频</button>
+    </div>
+    <div id="story-error" class="flash"></div>
+  </div>
+
+  <!-- Right: player + scene list -->
+  <div>
+    <div class="card" id="player-card" style="display:none">
+      <h2 style="font-size:16px;margin-bottom:8px">播放器</h2>
+      <img id="current-scene-img" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;border:1px solid var(--border);display:none">
+      <audio id="story-audio" controls style="width:100%;margin-top:8px"></audio>
+      <div class="flex-row" style="margin-top:8px;justify-content:space-between">
+        <span class="muted" id="scene-label"></span>
+        <div>
+          <button class="btn-outline btn-sm" onclick="prevScene()">上一段</button>
+          <button class="btn-outline btn-sm" onclick="nextScene()">下一段</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="scene-list"></div>
+
+    {% if recent_images %}
+    <div class="card" style="margin-top:12px">
+      <h2 style="font-size:16px;margin-bottom:8px">最近图片 <span class="muted">（点击复制URL到配图区）</span></h2>
+      <div class="grid3">
+        {% for img in recent_images %}
+        <img src="{{ img.local_path }}" class="result-img"
+             onclick="copyImageForStory('{{ img.urls[0] }}','{{ img.local_path }}')"
+             style="cursor:pointer" loading="lazy" title="点击复制URL">
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let scenes=[], currentScene=0
+
+// --- persistence: save scenes to localStorage on every change ---
+function saveState(){
+  try{
+    const data={
+      scenes:scenes.map(s=>({text:s.text,image:s.image,audio:s.audio,index:s.index,char:s.char})),
+      currentScene, storyText:$('story-text').value, sceneImages:$('scene-images').value,
+      sceneCasting:$('scene-casting').value, engine:$('tts-engine').value, voice:$('tts-voice').value
+    }
+    localStorage.setItem('story_state',JSON.stringify(data))
+  }catch(e){}
+}
+
+function loadState(){
+  try{
+    const raw=localStorage.getItem('story_state')
+    if(!raw) return false
+    const data=JSON.parse(raw)
+    scenes=data.scenes||[]; currentScene=data.currentScene||0
+    $('story-text').value=data.storyText||''
+    $('scene-images').value=data.sceneImages||''
+    $('scene-casting').value=data.sceneCasting||''
+    if(data.engine) $('tts-engine').value=data.engine
+    if(data.voice) $('tts-voice').value=data.voice
+    onEngineChange()
+    return scenes.length>0
+  }catch(e){return false}
+}
+
+function onEngineChange(){
+  const engine=$('tts-engine').value
+  document.querySelectorAll('#tts-voice option').forEach(o=>{
+    o.style.display=o.dataset.engine===engine?'':'none'
+  })
+  // select first visible option
+  const sel=$('tts-voice')
+  for(let o of sel.options){
+    if(o.dataset.engine===engine){ sel.value=o.value; break }
+  }
+}
+
+function parseCasting(raw){
+  const map={}
+  if(!raw.trim()) return map
+  raw.trim().split('\n').forEach(line=>{
+    const m=line.match(/^(\d+)\s*=\s*(.+)/)
+    if(m) map[parseInt(m[1])-1]=m[2].trim()
+  })
+  return map
+}
+
+async function generateStory(){
+  const btn=$('story-btn'),spin=$('story-spin'),err=$('story-error')
+  const text=$('story-text').value.trim()
+  if(!text){ err.textContent='请输入故事文本';err.style.display='block';return }
+
+  btn.disabled=true;spin.style.display='inline-block';err.style.display='none'
+
+  const paragraphs=text.split(/\n\s*\n/)
+    .map(p=>p.replace(/\n?配图[：:].+/g,'').replace(/\n?https?:\/\/\S+/g,'').trim())
+    .filter(p=>p)
+
+  const imgLines=$('scene-images').value.trim().split('\n').filter(l=>l.trim())
+  const casting=parseCasting($('scene-casting').value)
+  const engine=$('tts-engine').value
+  const voice=$('tts-voice').value
+
+  const parseImgLine=(l)=>{
+    if(!l) return ['','']
+    const parts=l.split('|')
+    return [parts[0].trim(), (parts[1]||'').trim()]
+  }
+  scenes=paragraphs.map((text,i)=>({
+    text: text.trim(),
+    image: parseImgLine(imgLines[i])[0],
+    imageLocal: parseImgLine(imgLines[i])[1],
+    audio: null,
+    index: i,
+    char: casting[i]||''
+  }))
+
+  let ok=0
+  for(let i=0;i<scenes.length;i++){
+    const s=scenes[i]
+    const fd=new FormData()
+    fd.append('text',s.text.replace(/https?:\/\/\S+/g,''))
+    fd.append('voice',voice)
+    fd.append('engine',engine)
+    fd.append('rate','+0%')
+    fd.append('pitch','+0Hz')
+    fd.append('style','general')
+    try{
+      const resp=await fetch('/api/tts',{method:'POST',body:fd})
+      const data=await resp.json()
+      if(data.success){
+        s.audio=data.path
+        ok++
+        updateSceneList()
+      }
+    }catch(ex){}
+  }
+
+  $('player-card').style.display=''
+  currentScene=0
+  playScene(0)
+  saveState()
+  toast(`完成：${ok}/${scenes.length} 段`)
+  btn.disabled=false;spin.style.display='none'
+  if(ok>0) $('export-btn').style.display=''
+}
+
+function updateSceneList(){
+  const el=$('scene-list')
+  el.innerHTML=scenes.map((s,i)=>`
+    <div class="card" style="padding:12px;cursor:pointer;${i===currentScene?'border:1.5px solid var(--accent)':''}"
+         onclick="playScene(${i})">
+      <div class="flex-row" style="justify-content:space-between">
+        <strong>段落${i+1}</strong>
+        <span class="tag ${s.audio?'tag-completed':'tag-queued'}">${s.audio?'配音完成':'生成中'}</span>
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px;max-height:40px;overflow:hidden">${s.text}</div>
+      ${s.image?`<img src="${s.image}" style="max-height:60px;margin-top:4px;border-radius:4px">`:''}
+      ${s.audio?`<audio src="${s.audio}" preload="none" style="width:100%;margin-top:4px;height:24px"></audio>`:''}
+    </div>
+  `).join('')
+}
+
+function playScene(i){
+  if(i<0||i>=scenes.length) return
+  currentScene=i
+  const s=scenes[i]
+  $('scene-label').textContent=`段落 ${i+1}/${scenes.length}`
+  const img=$('current-scene-img')
+  if(s.image){ img.src=s.image;img.style.display='' }
+  else img.style.display='none'
+  const audio=$('story-audio')
+  if(s.audio){ audio.src=s.audio; audio.play().catch(()=>{}) }
+  updateSceneList()
+}
+
+function nextScene(){ playScene(currentScene+1) }
+function prevScene(){ playScene(currentScene-1) }
+
+async function exportMP4(){
+  const hasAudio=scenes.some(s=>s.audio)
+  if(!hasAudio){ toast('请先生成配音',false); return }
+  const btn=$('export-btn'); btn.disabled=true; btn.textContent='导出中...'
+  try{
+    const resp=await fetch('/api/story/export',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({scenes:scenes.map(s=>({image:s.image,imageLocal:s.imageLocal,audio:s.audio}))})
+    })
+    const data=await resp.json()
+    if(data.success){
+      window.open(data.path)
+      toast('MP4 导出完成')
+    }else{
+      toast('导出失败: '+data.error, false)
+    }
+  }catch(ex){ toast('导出失败: '+ex.message, false) }
+  finally{ btn.disabled=false; btn.textContent='导出 MP4' }
+}
+
+async function recoverAudio(){
+  try{
+    const resp=await fetch('/api/audio/list')
+    const data=await resp.json()
+    if(!data.files||!data.files.length){ toast('没有找到音频文件',false); return }
+    // group files by time proximity (< 5s apart = same batch)
+    const files=data.files
+    // take the last N files as scenes
+    const scenesPerBatch=parseInt(prompt('恢复最近多少条音频？（6段=1个demo）','6'))
+    if(!scenesPerBatch) return
+    const batch=files.slice(-scenesPerBatch)
+    scenes=batch.map((f,i)=>({
+      text:`段落${i+1}（已恢复）`,
+      image:'',
+      audio:f.path,
+      index:i,
+      char:''
+    }))
+    updateSceneList()
+    $('player-card').style.display=''
+    $('export-btn').style.display=''
+    currentScene=0
+    playScene(0)
+    saveState()
+    toast(`已恢复 ${scenes.length} 段音频`)
+  }catch(ex){ toast('恢复失败: '+ex.message, false) }
+}
+
+function copyImageForStory(url, localPath){
+  const el=$('scene-images')
+  const line=localPath?url+' | '+localPath:url
+  el.value=el.value?el.value+'\n'+line:line
+  toast('已添加到配图列表')
+}
+
+// restore saved state on page load
+(function(){
+  if(loadState()){
+    updateSceneList()
+    $('player-card').style.display=''
+    $('export-btn').style.display=''
+    playScene(currentScene)
+    toast('已恢复上次会话')
+  }
+})()
+</script>
+{% endblock %}

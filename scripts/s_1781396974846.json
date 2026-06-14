@@ -1,0 +1,52 @@
+{
+  "id": "s_1781396974846",
+  "title": "长安夜谍",
+  "genre": "古风悬疑",
+  "characters": [
+    {
+      "name": "林小宛",
+      "description": "年轻女子，身着素色襦裙，发丝被夜风微微吹散，神情温婉却眼神敏锐，举止克制冷静。",
+      "image_prompt": "photorealistic young Chinese woman in a plain traditional ruqun dress, slightly wind-tousled hair, calm but sharp eyes, elegant and restrained posture, ancient Tang dynasty style, 9:16 vertical character portrait, soft cinematic lighting"
+    },
+    {
+      "name": "白衣少年",
+      "description": "年轻男子，身着白衣，长发束冠，气质清冷如月，初看沉静从容，转瞬间可显露警觉与危险感。",
+      "image_prompt": "photorealistic young Chinese man in flowing white ancient robe, long hair tied with a crown, calm and enigmatic expression, intense amber eyes, elegant Tang dynasty style, 9:16 vertical character portrait, dramatic cinematic lighting"
+    }
+  ],
+  "scenes": [
+    {
+      "index": 0,
+      "title": "朱雀夜色",
+      "narration": "夜幕降临，长安城华灯初上。朱雀大街两侧的灯笼次第亮起，将整条街映成一片温暖的橘红色。林小宛推开悦来茶馆的门，一股混合着茶香与炭火的暖意扑面而来。她拢了拢被夜风吹散的碎发，目光在茶客间缓缓扫过。角落里，一位白衣少年正低头抚琴，琴声清越如水击石，仿佛与这座城的夜色融为一体。",
+      "dialogue": [],
+      "image_prompt": "ancient Chang'an city night scene, Zhuque Avenue lined with red lanterns glowing in warm orange-red light, Tang dynasty architecture, cinematic lighting, atmospheric night street, elegant historical realism, 16:9 widescreen"
+    },
+    {
+      "index": 1,
+      "title": "玉佩与真相",
+      "narration": "林小宛在少年对面坐下，从袖中取出一枚玉佩放在桌上。少年指尖一顿，琴声戛然而止。他抬起头，琥珀色的眼眸在烛光下映出复杂的神色。林小宛端起茶盏轻啜一口，表面平静，言语却直指要害。短短几句之间，试探已变成锋利的对峙，茶馆里的暖意仿佛也被这突如其来的秘密凝住了。",
+      "dialogue": [
+        {
+          "character": "林小宛",
+          "line": "这是你的东西，忘在城门口了。"
+        },
+        {
+          "character": "白衣少年",
+          "line": "你……跟了我多久？"
+        },
+        {
+          "character": "林小宛",
+          "line": "从你踏入长安的第一步起。"
+        },
+        {
+          "character": "林小宛",
+          "line": "所以，告诉我——你为何要刺杀太子？"
+        }
+      ],
+      "image_prompt": "inside a Tang dynasty tea house, wooden tables and chairs, charcoal stove with boiling teapot, warm light through paper windows, a young woman in plain ruqun sitting across from a white-robed young man, a translucent jade pendant on the wooden table, tense cinematic atmosphere, shallow depth of field, 16:9 widescreen"
+    }
+  ],
+  "draft": true,
+  "updated_at": 1781396987
+}

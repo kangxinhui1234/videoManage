@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}图片生成 - AI Studio{% endblock %}
+{% block nav_image %}active{% endblock %}
+
+{% block content %}
+<h1>图片生成</h1>
+
+<div class="grid2">
+  <div class="card">
+    <form id="img-form" onsubmit="generateImage(event)">
+      <label>模型</label>
+      <select name="model">
+        {% for m in models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+      </select>
+
+      <label>提示词</label>
+      <textarea name="prompt" placeholder="描述你想生成的图片...&#10;例如：一个古风少女站在樱花树下，柔光，精致面容，飘逸长发"></textarea>
+
+      <div class="grid2">
+        <div>
+          <label>比例</label>
+          <select name="size">
+            {% for k,v in ratios.items() %}
+            <option value="{{ k }}" {% if k=='1:1' %}selected{% endif %}>{{ k }} ({{ v }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>数量</label>
+          <select name="n">
+            <option value="1">1 张</option><option value="2">2 张</option>
+            <option value="3">3 张</option><option value="4">4 张</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex-row" style="margin-top:16px">
+        <button type="submit" id="img-btn">
+          <span class="spinner" id="img-spin"></span> 生成图片
+        </button>
+        <span class="muted">同步生成，约 5-15 秒</span>
+      </div>
+    </form>
+
+    <div id="img-error" class="flash"></div>
+
+    <!-- quick presets -->
+    <details style="margin-top:20px">
+      <summary style="cursor:pointer;font-weight:600;font-size:13px">角色图预设</summary>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+        <button type="button" class="btn-outline btn-sm" onclick="setPrompt('一个古风少女，长发飘逸，汉服，樱花背景，柔光，精致面容，全身像')">古风少女</button>
+        <button type="button" class="btn-outline btn-sm" onclick="setPrompt('赛博朋克风格女性角色，霓虹灯背景，机械义肢，高细节，电影级光影')">赛博朋克</button>
+        <button type="button" class="btn-outline btn-sm" onclick="setPrompt('现代都市男性角色，西装，写字楼背景，商务精英，干净简约，半身像')">商务精英</button>
+        <button type="button" class="btn-outline btn-sm" onclick="setPrompt('奇幻世界的精灵弓箭手，森林背景，精灵耳，斗篷，魔法光效，高质量角色设计')">奇幻精灵</button>
+        <button type="button" class="btn-outline btn-sm" onclick="setPrompt('二次元风格少女，学院制服，教室场景，日系动画风，柔和色彩')">二次元少女</button>
+        <button type="button" class="btn-outline btn-sm" onclick="setPrompt('写实风格中年侠客，古装，竹林，沉稳气质，电影质感')">写实侠客</button>
+      </div>
+    </details>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2 style="font-size:16px;margin-bottom:12px">生成结果</h2>
+      <div id="img-results" class="grid3"></div>
+      <div id="img-empty" class="empty">点击"生成图片"开始</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function setPrompt(text){document.querySelector('[name=prompt]').value=text}
+
+async function generateImage(e){
+  e.preventDefault()
+  const btn=$('img-btn'), spin=$('img-spin'), err=$('img-error')
+  btn.disabled=true; spin.style.display='inline-block'; err.style.display='none'
+  try{
+    const fd=new FormData(e.target)
+    const resp=await fetch('/api/image/generate',{method:'POST',body:fd})
+    const data=await resp.json()
+    if(!data.success) throw new Error(data.error)
+    showResults(data)
+    toast('生成完成')
+  }catch(ex){
+    err.textContent='生成失败: '+ex.message; err.style.display='block'
+  }finally{
+    btn.disabled=false; spin.style.display='none'
+  }
+}
+
+function showResults(data){
+  const el=$('img-results'), empty=$('img-empty')
+  el.innerHTML=''; empty.style.display='none'
+  data.urls.forEach((url,i)=>{
+    const src=data.local_paths[i]||url
+    const card=document.createElement('div')
+    // wrap image in a container with overlay hint
+    card.innerHTML=`
+      <div style="position:relative;cursor:pointer" onclick="copyImageUrl('${url}')" title="点击复制URL，可粘贴到编辑/视频页使用">
+        <img src="${src}" class="result-img" loading="lazy">
+        <div style="position:absolute;bottom:4px;right:4px;background:#000000aa;color:#fff;font-size:11px;padding:2px 8px;border-radius:4px;pointer-events:none">点击复制</div>
+      </div>
+      <div class="flex-row" style="margin-top:6px">
+        <button class="btn-outline btn-sm" onclick="event.stopPropagation();copyText('${url}')">复制URL</button>
+        <a href="${src}" download class="btn btn-sm" style="text-decoration:none">下载</a>
+        <button class="btn-outline btn-sm" onclick="event.stopPropagation();useForVideo('${url}')">用于视频</button>
+        <button class="btn-outline btn-sm" onclick="event.stopPropagation();useForEdit('${url}')">用于编辑</button>
+      </div>`
+    el.appendChild(card)
+  })
+}
+
+function copyImageUrl(url){
+  copyText(url)
+  toast('URL已复制！可前往 图片编辑 或 视频生成 页面粘贴使用')
+}
+
+function useForEdit(url){
+  // store in sessionStorage so edit page can pick it up
+  sessionStorage.setItem('ref_image_url', url)
+  window.location.href='/edit'
+}
+
+function copyText(t){navigator.clipboard.writeText(t);toast('已复制到剪贴板')}
+function useForVideo(url){
+  sessionStorage.setItem('ref_image_url', url)
+  window.location.href='/video'
+}
+</script>
+{% endblock %}

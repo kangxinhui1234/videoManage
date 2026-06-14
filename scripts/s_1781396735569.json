@@ -1,0 +1,60 @@
+{
+  "id": "s_1781396735569",
+  "title": "夜幕长安",
+  "summary": "长安夜色之下，女探林小宛奉命追查刺杀太子案，意外盯上了一名身份成谜的白衣少年。她一路追踪到茶馆，当面揭穿他的行踪，却发现他并非凡人，而是为封印失控的妖祟而入京的仙门弟子。太子遇刺只是表象，真正的阴谋指向皇城深处的上古魔印。两人在追查中从互相试探到被迫联手，最终在长安城的夜雨与灯火中，揭开了刺杀、玉佩和少年身世的真相，也面对了一场必须以命封印的宿命抉择。",
+  "genre": "古装仙侠悬疑短剧",
+  "characters": [],
+  "props": [],
+  "scenes": [
+    {
+      "index": 0,
+      "title": "灯下相逢",
+      "narration": "夜幕降临，长安城华灯初上。朱雀大街两侧灯笼次第亮起，整条街映成一片温暖的橘红色。林小宛推开悦来茶馆的门，带着夜风的凉意走进满室茶香与炭火暖意。角落里，一位白衣少年低头抚琴，琴声清越如水击石，仿佛与这座长安城的夜色融为一体。林小宛认出他，径直坐到他对面，将一枚玉佩放在桌上，平静却带着审视，开口便直指要害：她知道他的身份，也知道他此行的真正目的。",
+      "dialogue": [
+        {
+          "character": "林小宛",
+          "line": "这是你的东西，忘在城门口了。"
+        },
+        {
+          "character": "白衣少年",
+          "line": "你……跟了我多久？"
+        },
+        {
+          "character": "林小宛",
+          "line": "从你踏入长安的第一步起。"
+        },
+        {
+          "character": "林小宛",
+          "line": "所以，告诉我——你为何要刺杀太子？"
+        }
+      ],
+      "image_prompt": "Ancient Chang'an city at night, Zhuque Avenue lined with red lanterns, Tang dynasty architecture, warm cinematic lighting. Inside a traditional Chinese teahouse with wooden tables, wooden chairs, and a charcoal stove boiling tea, a young woman in a plain ruqun enters from the door. In the corner sits a white-robed young man playing the guqin, long hair tied with a crown, moonlight streaming through the window, elegant and mysterious atmosphere, shallow depth of field, cinematic ancient Chinese drama style, 16:9"
+    },
+    {
+      "index": 1,
+      "title": "灯下相逢",
+      "narration": "夜幕降临，长安城华灯初上。朱雀大街两侧灯笼次第亮起，整条街映成一片温暖的橘红色。林小宛推开悦来茶馆的门，带着夜风的凉意走进满室茶香与炭火暖意。角落里，一位白衣少年低头抚琴，琴声清越如水击石，仿佛与这座长安城的夜色融为一体。林小宛认出他，径直坐到他对面，将一枚玉佩放在桌上，平静却带着审视，开口便直指要害：她知道他的身份，也知道他此行的真正目的。",
+      "dialogue": [
+        {
+          "character": "林小宛",
+          "line": "这是你的东西，忘在城门口了。"
+        },
+        {
+          "character": "白衣少年",
+          "line": "你……跟了我多久？"
+        },
+        {
+          "character": "林小宛",
+          "line": "从你踏入长安的第一步起。"
+        },
+        {
+          "character": "林小宛",
+          "line": "所以，告诉我——你为何要刺杀太子？"
+        }
+      ],
+      "image_prompt": "Ancient Chang'an city at night, Zhuque Avenue lined with red lanterns, Tang dynasty architecture, warm cinematic lighting. Inside a traditional Chinese teahouse with wooden tables, wooden chairs, and a charcoal stove boiling tea, a young woman in a plain ruqun enters from the door. In the corner sits a white-robed young man playing the guqin, long hair tied with a crown, moonlight streaming through the window, elegant and mysterious atmosphere, shallow depth of field, cinematic ancient Chinese drama style, 16:9"
+    }
+  ],
+  "draft": true,
+  "updated_at": 1781396790
+}

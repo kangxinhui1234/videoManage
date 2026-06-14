@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}视频生成 - AI Studio{% endblock %}
+{% block nav_video %}active{% endblock %}
+
+{% block content %}
+<h1>视频生成</h1>
+
+<div class="grid2">
+  <div class="card">
+    <form id="video-form" onsubmit="createVideo(event)" enctype="multipart/form-data">
+      <label>模型</label>
+      <select name="model" id="model-select" onchange="onModelChange()">
+        {% for k,v in models.items() %}
+        <option value="{{ k }}" {% if k=='sora-2-pro' %}selected{% endif %}>{{ v }} ({{ k }})</option>
+        {% endfor %}
+      </select>
+
+      <label>提示词 <span class="muted">（<span id="prompt-count">0</span>/2500，超出无法提交）</span></label>
+      <textarea name="prompt" id="prompt-input" placeholder="描述视频内容...&#10;例如：角色1和角色2在咖啡厅对话，镜头缓慢推进，柔光电影感"
+                oninput="updatePromptCount()" maxlength="2600"></textarea>
+      <div id="prompt-warn" style="color:var(--danger);font-size:12px;margin-top:4px;display:none">提示词已超出 2500 字符限制，请精简后再提交</div>
+
+      <div class="grid2">
+        <div>
+          <label>尺寸</label>
+          <select name="size" id="size-select">
+            {% for s in sizes %}
+            <option value="{{ s[0] }}" {% if s[0]=='1280x720' %}selected{% endif %}>{{ s[1] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>时长（秒）<span class="muted"> Kling 建议 ≤10</span></label>
+          <select name="seconds" id="seconds-select">
+            {% for s in seconds_options %}
+            <option value="{{ s }}" {% if s=='5' %}selected{% endif %}>{{ s }} 秒</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="flex-row" style="margin-top:12px">
+        <label style="margin:0;display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" name="generate_audio" value="1" style="width:auto"> 生成音频/对白
+        </label>
+        <span class="muted" id="audio-hint">（Kling 需勾选；Sora 原生自带音频，无需勾选）</span>
+      </div>
+
+      <!-- Reference images upload -->
+      <label style="margin-top:16px">参考角色图 <span class="muted">（拖拽/点击上传多张，Base64 直传，最多3张）</span></label>
+      <div id="ref-upload-zone" style="border:2px dashed var(--border);border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:.15s"
+           onclick="$('ref-files').click()"
+           ondragover="this.style.borderColor='var(--accent)';event.preventDefault()"
+           ondragleave="this.style.borderColor='var(--border)'"
+           ondrop="handleDrop(event)">
+        <span style="font-size:28px">+</span>
+        <p class="muted">点击或拖拽上传参考图（角色1/角色2/角色3）</p>
+        <input type="file" id="ref-files" name="ref_files" accept="image/*" multiple
+               style="display:none" onchange="onRefFilesSelected()">
+      </div>
+
+      <!-- Preview of uploaded reference images -->
+      <div id="ref-previews" class="grid3" style="margin-top:12px"></div>
+
+      <!-- Optional: paste URL -->
+      <details style="margin-top:12px">
+        <summary style="cursor:pointer;font-weight:600;font-size:13px;color:var(--muted)">或粘贴参考图 URL</summary>
+        <input type="text" name="ref_urls" placeholder="https://...,https://...（逗号分隔）">
+      </details>
+
+      <div class="flex-row" style="margin-top:16px">
+        <button type="submit" id="vid-btn">
+          <span class="spinner" id="vid-spin"></span> 创建视频任务
+        </button>
+        <span class="muted">异步任务，提交后自动轮询</span>
+      </div>
+    </form>
+    <div id="vid-error" class="flash"></div>
+  </div>
+
+  <div>
+    <!-- status card -->
+    <div class="card" id="status-card" style="display:none">
+      <h2 style="font-size:16px;margin-bottom:8px">任务状态</h2>
+      <div class="flex-row">
+        <span>ID: <code id="task-id"></code></span>
+        <span>状态: <span id="task-status-tag" class="tag"></span></span>
+      </div>
+      <div id="task-error" style="color:var(--danger);margin-top:8px;display:none"></div>
+      <div id="task-result" style="margin-top:12px;display:none">
+        <video id="task-video" class="result-video" controls></video>
+        <div class="flex-row" style="margin-top:8px">
+          <a id="task-download" class="btn btn-sm" style="text-decoration:none">下载视频</a>
+        </div>
+      </div>
+    </div>
+
+    {% if recent_images %}
+    <div class="card">
+      <h2 style="font-size:16px;margin-bottom:12px">最近图片 <span class="muted">（点击添加为参考）</span></h2>
+      <div class="grid3">
+        {% for img in recent_images %}
+        <img src="{{ img.local_path }}" class="result-img"
+             onclick="addRefUrl('{{ img.urls[0] }}')"
+             style="cursor:pointer" loading="lazy" title="点击添加为参考图">
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let pollTimer=null, _refFiles=[], _refUrls=[]
+
+const SORA_SECONDS=['4','8','12']
+const ALL_SECONDS=['4','5','6','8','10','12','15']
+const SORA_SIZES=[['1280x720','1280x720 (16:9)'],['720x1280','720x1280 (9:16)']]
+const SORA_PRO_SIZES=[['1280x720','1280x720 (16:9)'],['720x1280','720x1280 (9:16)'],['1792x1024','1792x1024 (16:9)'],['1024x1792','1024x1792 (9:16)']]
+const ALL_SIZES=[['1280x720','1280x720 (16:9 横屏)'],['720x1280','720x1280 (9:16 竖屏)'],['1920x1080','1920x1080 (16:9 横屏)'],['1080x1920','1080x1920 (9:16 竖屏)'],['720x720','720x720 (1:1 方形)']]
+
+function onModelChange(){
+  const m=$('model-select').value
+  const isSora=m.startsWith('sora-')
+  const isSoraPro=m==='sora-2-pro'
+  // update audio hint
+  $('audio-hint').textContent=isSora?'（Sora 原生自带音频，无需勾选）':'（Kling 需勾选；Sora 原生自带）'
+  // update seconds
+  const secs=isSora?SORA_SECONDS:ALL_SECONDS
+  const sel=$('seconds-select')
+  sel.innerHTML=secs.map(function(s){
+    var sel=(s==='4'&&isSora)||(s==='5'&&!isSora)?' selected':''
+    return '<option value="'+s+'"'+sel+'>'+s+' 秒</option>'
+  }).join('')
+  // update sizes
+  const sizes=isSora?(isSoraPro?SORA_PRO_SIZES:SORA_SIZES):ALL_SIZES
+  const sz=$('size-select')
+  sz.innerHTML=sizes.map(function(s){
+    return '<option value="'+s[0]+'">'+s[1]+'</option>'
+  }).join('')
+}
+
+function updatePromptCount(){
+  const el=$('prompt-input'), count=$('prompt-count'), warn=$('prompt-warn')
+  const len=el.value.length
+  count.textContent=len
+  count.style.color=len>2500?'var(--danger)':'var(--muted)'
+  warn.style.display=len>2500?'':'none'
+}
+
+function handleDrop(e){
+  e.preventDefault()
+  e.target.style.borderColor='var(--border)'
+  $('ref-files').files=e.dataTransfer.files
+  onRefFilesSelected()
+}
+
+function onRefFilesSelected(){
+  _refFiles=Array.from($('ref-files').files)
+  renderRefPreviews()
+}
+
+function addRefUrl(url){
+  if(!_refUrls.includes(url)){ _refUrls.push(url); renderRefPreviews() }
+  toast('已添加参考图URL')
+}
+
+function removeRefFile(idx){
+  _refFiles.splice(idx,1)
+  const dt=new DataTransfer(); _refFiles.forEach(f=>dt.items.add(f))
+  $('ref-files').files=dt.files; renderRefPreviews()
+}
+
+function removeRefUrl(idx){
+  _refUrls.splice(idx,1); renderRefPreviews()
+}
+
+function renderRefPreviews(){
+  const el=$('ref-previews'), count=_refFiles.length+_refUrls.length
+  let html=''
+  _refFiles.forEach((f,i)=>{
+    html+=`<div style="position:relative">
+      <img src="${URL.createObjectURL(f)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+      <span style="position:absolute;top:4px;left:4px;background:#000000aa;color:#fff;font-size:10px;padding:1px 6px;border-radius:4px">角色${i+1}</span>
+      <button type="button" onclick="removeRefFile(${i})" style="position:absolute;top:4px;right:4px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:1;cursor:pointer;padding:0">x</button>
+      <span class="muted" style="font-size:11px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
+    </div>`
+  })
+  _refUrls.forEach((url,i)=>{
+    html+=`<div style="position:relative">
+      <img src="${url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+      <span style="position:absolute;top:4px;left:4px;background:#6366f1aa;color:#fff;font-size:10px;padding:1px 6px;border-radius:4px">URL${i+1}</span>
+      <button type="button" onclick="removeRefUrl(${i})" style="position:absolute;top:4px;right:4px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:1;cursor:pointer;padding:0">x</button>
+    </div>`
+  })
+  el.innerHTML=html
+}
+
+async function createVideo(e){
+  e.preventDefault()
+  const btn=$('vid-btn'),spin=$('vid-spin'),err=$('vid-error')
+  const prompt=$('prompt-input').value
+  if(prompt.length > 2500){
+    err.textContent=`提示词 ${prompt.length} 字符，超出 2500 限制，需精简 ${prompt.length-2500} 字符`;err.style.display='block';return
+  }
+  btn.disabled=true;spin.style.display='inline-block';err.style.display='none'
+  try{
+    const fd=new FormData(e.target)
+    _refFiles.forEach(f=>fd.append('ref_files',f))
+    if(_refUrls.length) fd.set('ref_urls',_refUrls.join(','))
+    const resp=await fetch('/api/video/create',{method:'POST',body:fd})
+    const data=await resp.json()
+    if(!data.success) throw new Error(data.error)
+    $('status-card').style.display=''; $('task-id').textContent=data.task_id
+    $('task-result').style.display='none'; $('task-error').style.display='none'
+    startPolling(data.task_id); toast('任务已提交')
+  }catch(ex){
+    err.textContent='创建失败: '+ex.message;err.style.display='block'
+  }finally{
+    btn.disabled=false;spin.style.display='none'
+  }
+}
+
+function startPolling(taskId){
+  if(pollTimer) clearInterval(pollTimer)
+  pollTimer=setInterval(()=>poll(taskId),5000); poll(taskId)
+}
+
+async function poll(taskId){
+  try{
+    const resp=await fetch('/api/video/'+taskId)
+    const task=await resp.json()
+    const tag=$('task-status-tag'); tag.textContent=task.status; tag.className='tag tag-'+task.status
+    if(task.status==='completed'){
+      clearInterval(pollTimer); $('task-result').style.display=''
+      const lp=task.local_path||''
+      const vurl=lp.startsWith('/')?lp:lp.includes('output')?'/'+lp.substring(lp.indexOf('output')).replace(/\\\\/g,'/'):''
+      const v=$('task-video'); v.src=vurl||task.video_url||''
+      $('task-download').href=vurl||task.video_url||'#'
+      toast('视频生成完成')
+    }else if(task.status==='failed'){
+      clearInterval(pollTimer); $('task-error').style.display=''
+      $('task-error').textContent='失败: '+(task.error||'未知错误')
+    }
+  }catch(ex){}
+}
+
+// sync dropdowns on page load + restore ref from image page
+onModelChange()
+(function(){
+  const saved=sessionStorage.getItem('ref_image_url')
+  if(saved){ addRefUrl(saved); sessionStorage.removeItem('ref_image_url') }
+})()
+</script>
+{% endblock %}

@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}剧本工作台 - AI Studio{% endblock %}
+{% block nav_script %}active{% endblock %}
+
+{% block content %}
+<style>
+.workspace{display:grid;grid-template-columns:360px 1fr;gap:16px;height:calc(100vh - 120px)}
+.workspace>div{overflow-y:auto}
+.chat-box{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);display:flex;flex-direction:column}
+.chat-msgs{flex:1;overflow-y:auto;padding:12px;min-height:0}
+.chat-input{border-top:1px solid var(--border);padding:12px}
+.msg{margin-bottom:10px;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.55;word-break:break-word}
+.msg-user{background:#eef2ff;margin-left:16px}
+.msg-ai{background:#f3f4f6;margin-right:16px}
+.msg pre{background:#1e1e2e;color:#cdd6f4;padding:10px;border-radius:8px;overflow-x:auto;font-size:12px;white-space:pre-wrap}
+.stage{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+.stage-done{background:#dcfce7;color:#166534}
+.stage-active{background:#dbeafe;color:#1e40af}
+.stage-pending{background:#f3f4f6;color:#9ca3af}
+.pipeline{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.pipeline .arrow{color:#d1d5db}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.char-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.char-item{text-align:center;padding:8px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s}
+.char-item:hover{border-color:var(--accent)}
+.char-item img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:6px;background:#f3f4f6}
+.char-item .name{font-size:12px;font-weight:600;margin-top:4px}
+.scene-row{display:flex;gap:12px;padding:14px;border-bottom:1px solid var(--border);align-items:flex-start}
+.scene-row .num{font-size:28px;font-weight:700;color:var(--accent);min-width:36px;text-align:center}
+.scene-row .body{flex:1}
+.scene-row img{max-width:240px;max-height:135px;border-radius:6px;border:1px solid var(--border);cursor:pointer}
+.btn-sm{padding:4px 10px;font-size:11px}
+@media(max-width:860px){.workspace{grid-template-columns:1fr}.scene-row{flex-wrap:wrap}}
+</style>
+
+<div class="toolbar">
+  <select id="script-select" onchange="loadScript(this.value)" style="width:auto;max-width:180px">
+    <option value="">+ 新建</option>
+  </select>
+  <input id="script-title" placeholder="剧本标题" style="width:auto;max-width:140px">
+  <button onclick="newScript()">新建</button>
+  <button class="btn-outline" onclick="saveScript()">保存</button>
+  <span class="muted" id="save-status"></span>
+  <span style="margin-left:auto">
+    <button id="btn-genall" onclick="genAllImages()" style="display:none">一键全部生图</button>
+  </span>
+</div>
+
+<div class="pipeline" id="pipeline">
+  <span class="stage stage-active">1. 剧本</span><span class="arrow">→</span>
+  <span class="stage stage-pending">2. 角色图</span><span class="arrow">→</span>
+  <span class="stage stage-pending">3. 场景图</span><span class="arrow">→</span>
+  <span class="stage stage-pending">4. 配音导出</span>
+</div>
+
+<div class="workspace">
+  <!-- LEFT: Chat -->
+  <div class="chat-box">
+    <div class="chat-msgs" id="chat-msgs">
+      <div class="msg msg-ai">我是导演助手（GPT-5）。告诉我你要拍什么——题材、风格、几场戏、角色构想？我直接出完整剧本。</div>
+    </div>
+    <div class="chat-input">
+      <textarea id="chat-input" rows="2" placeholder="描述故事... (Enter 发送)"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
+      <div class="flex-row" style="margin-top:6px;justify-content:space-between">
+        <button onclick="sendMsg()" id="send-btn">发送</button>
+        <button class="btn-outline btn-sm" onclick="resetAgent()">重来</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Script -->
+  <div>
+    <div id="script-empty" class="empty" style="padding:60px 20px">
+      <div style="font-size:48px;margin-bottom:16px"></div>
+      <p>左侧对话开始创作剧本</p>
+      <p class="muted">AI 会自动生成角色设定、场景分镜、生图提示词</p>
+    </div>
+
+    <div id="script-content" style="display:none">
+      <!-- Characters -->
+      <div class="panel" id="chars-panel" style="display:none">
+        <h3>角色设定 <button class="btn-sm" onclick="genAllCharImages()">批量生图</button></h3>
+        <div class="char-grid" id="char-grid"></div>
+      </div>
+
+      <!-- Script body -->
+      <div class="panel">
+        <h3 id="script-title-display">剧本</h3>
+        <div id="scene-container"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let script=null, streaming=false
+
+// ---- Pipeline ----
+function updatePipeline(){
+  const s=script, st=document.querySelectorAll('#pipeline .stage')
+  st[0].className='stage '+(s&&s.scenes&&s.scenes.length?'stage-done':'stage-active')
+  const hasChars=s&&s.characters&&s.characters.some(c=>c.image_path)
+  const hasScenes=s&&s.scenes&&s.scenes.some(sc=>sc.image_path)
+  st[1].className='stage '+(hasChars?'stage-done':s&&s.characters&&s.characters.length?'stage-active':'stage-pending')
+  st[2].className='stage '+(hasScenes?'stage-done':s&&s.scenes&&s.scenes.length?'stage-active':'stage-pending')
+  st[3].className='stage '+(hasChars&&hasScenes?'stage-active':'stage-pending')
+  if(s&&s.characters&&s.scenes&&s.scenes.length){
+    $('btn-genall').style.display=''
+  }
+}
+
+// ---- Chat (streaming) ----
+async function sendMsg(){
+  if(streaming) return
+  const input=$('chat-input'), text=input.value.trim()
+  if(!text) return
+  if(!script) newScript()
+  input.value=''
+  appendMsg('user',text)
+  streaming=true; $('send-btn').disabled=true
+
+  const aiDiv=document.createElement('div'); aiDiv.className='msg msg-ai'
+  const aiContent=document.createElement('div'); aiDiv.appendChild(aiContent)
+  $('chat-msgs').appendChild(aiDiv)
+
+  let full=''
+  try{
+    const resp=await fetch('/api/script/chat/stream',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[{role:'user',content:text}],script:script?{title:script.title,characters:script.characters,scenes:script.scenes}:null})
+    })
+    const reader=resp.body.getReader(), decoder=new TextDecoder()
+    while(true){
+      const{value,done}=await reader.read()
+      if(done) break
+      for(const line of decoder.decode(value,{stream:true}).split('\n')){
+        if(line.startsWith('data: ')){
+          const ds=line.slice(6)
+          if(ds==='[DONE]') continue
+          try{
+            const j=JSON.parse(ds)
+            if(j.token){ full+=j.token; aiContent.innerHTML=md2html(full); $('chat-msgs').scrollTop=$('chat-msgs').scrollHeight }
+            if(j.actions) applyScriptJSON(j.actions)
+          }catch(e){}
+        }
+      }
+    }
+  }catch(ex){ aiContent.textContent='请求失败: '+ex.message }
+  if(full){
+    applyScriptJSON(extractJSON(full))
+    updatePipeline()
+  }
+  streaming=false; $('send-btn').disabled=false
+  saveScript()
+}
+
+function applyScriptJSON(blocks){
+  if(!script) return
+  for(const b of blocks){
+    if(b.title){ script.title=b.title; script.genre=b.genre||''; $('script-title').value=b.title; $('script-title-display').textContent=b.title }
+    if(Array.isArray(b.characters)){
+      b.characters.forEach(c=>{
+        const exists=script.characters.find(x=>x.name===c.name)
+        if(exists) Object.assign(exists,c)
+        else script.characters.push(c)
+      })
+    }
+    if(Array.isArray(b.scenes)){
+      b.scenes.forEach((s,i)=>{ s.index=s.index||i })
+      // Merge with existing by index
+      b.scenes.forEach(s=>{
+        const exists=script.scenes.find(x=>x.index===s.index)
+        if(exists) Object.assign(exists,s)
+        else script.scenes.push(s)
+      })
+      // Sort by index
+      script.scenes.sort((a,b)=>a.index-b.index)
+    }
+  }
+  renderAll()
+}
+
+function extractJSON(text){
+  const re=/```json\s*([\s\S]*?)\s*```/g, results=[]
+  let m
+  while(m=re.exec(text)){
+    try{ results.push(JSON.parse(m[1])) }catch(e){}
+  }
+  return results
+}
+
+function md2html(t){
+  return t.replace(/```json[\s\S]*?```/g,'<pre>$&</pre>').replace(/```(\w*)([\s\S]*?)```/g,'<pre>$2</pre>').replace(/\n/g,'<br>')
+}
+
+function appendMsg(role,text){
+  const div=document.createElement('div')
+  div.className='msg '+(role==='user'?'msg-user':'msg-ai')
+  div.innerHTML=md2html(text)
+  $('chat-msgs').appendChild(div)
+  $('chat-msgs').scrollTop=$('chat-msgs').scrollHeight
+}
+
+async function resetAgent(){
+  await fetch('/api/script/reset',{method:'POST'})
+  $('chat-msgs').innerHTML='<div class=\"msg msg-ai\">已重置。告诉我你要拍什么？</div>'
+}
+
+// ---- Script CRUD ----
+function newScript(){
+  script={id:'s_'+Date.now(),title:'',genre:'',characters:[],scenes:[],draft:true}
+  $('script-title').value=''; $('script-title-display').textContent='剧本'
+  $('script-empty').style.display=''; $('script-content').style.display='none'
+  updatePipeline(); renderAll(); saveScript(); loadScriptList()
+}
+
+async function saveScript(){
+  if(!script) return
+  script.updated_at=Date.now()/1000|0
+  try{
+    await fetch('/api/script/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(script)})
+    $('save-status').textContent='已保存 '+new Date().toLocaleTimeString()
+  }catch(e){}
+}
+
+async function loadScript(id){
+  if(!id) return
+  try{
+    const r=await fetch('/api/script/load?id='+id)
+    const d=await r.json()
+    if(d.script){
+      script=d.script
+      $('script-title').value=script.title||''
+      $('script-title-display').textContent=script.title||'剧本'
+      $('script-empty').style.display='none'; $('script-content').style.display=''
+      renderAll(); updatePipeline()
+    }
+  }catch(e){}
+}
+
+async function loadScriptList(){
+  try{
+    const r=await fetch('/api/script/list')
+    const d=await r.json()
+    $('script-select').innerHTML='<option value=\"\">+ 新建</option>'+d.scripts.map(s=>`<option value=\"${s.id}\">${s.title||'未命名'} (${s.scenes}场)</option>`).join('')
+  }catch(e){}
+}
+
+// ---- Characters ----
+function renderCharGrid(){
+  if(!script||!script.characters.length){ $('chars-panel').style.display='none'; return }
+  $('chars-panel').style.display=''
+  $('char-grid').innerHTML=script.characters.map((c,i)=>`
+    <div class="char-item" onclick="genCharImage(${i})">
+      ${c.image_path?`<img src="${c.image_path}">`:`<div style="width:100%;aspect-ratio:9/16;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:28px">+</div>`}
+      <div class="name">${c.name}</div>
+    </div>
+  `).join('')
+}
+
+async function genCharImage(i){
+  const c=script.characters[i]
+  if(!c.image_prompt) return
+  const fd=new FormData(); fd.append('prompt',c.image_prompt); fd.append('size','9:16'); fd.append('n','1')
+  const r=await fetch('/api/image/generate',{method:'POST',body:fd})
+  const d=await r.json()
+  if(d.success){ c.image_url=d.urls[0]; c.image_path=d.local_paths[0]; renderCharGrid(); saveScript(); updatePipeline() }
+}
+
+async function genAllCharImages(){
+  if(!script) return
+  for(let i=0;i<script.characters.length;i++){
+    if(script.characters[i].image_prompt&&!script.characters[i].image_path) await genCharImage(i)
+  }
+  toast('角色图完成')
+}
+
+// ---- Scenes ----
+function renderScenes(){
+  $('script-empty').style.display='none'; $('script-content').style.display=''
+  if(!script||!script.scenes.length){
+    $('scene-container').innerHTML='<div class=empty>等待AI生成剧本...</div>'; return
+  }
+  $('scene-container').innerHTML=script.scenes.map((s,i)=>`
+    <div class="scene-row">
+      <div class="num">${i+1}</div>
+      <div class="body">
+        <strong>${s.title||'场景'+(i+1)}</strong>
+        ${s.narration?`<p style="font-size:13px;color:var(--muted);margin:6px 0;line-height:1.7">${s.narration}</p>`:''}
+        ${s.dialogue&&s.dialogue.length?`<div style="margin:8px 0">${s.dialogue.map(d=>`<div style="font-size:13px;padding:3px 0"><strong style="color:var(--accent)">${d.character}：</strong>${d.line}</div>`).join('')}</div>`:''}
+        ${s.image_prompt?`<button class="btn-sm" onclick="genSceneImage(${i})" style="margin-top:6px">${s.image_path?'重新生图':'生成场景图'}</button>`:''}
+      </div>
+      ${s.image_path?`<img src="${s.image_path}" onclick="window.open('${s.image_path}')">`:''}
+    </div>
+  `).join('')
+}
+
+async function genSceneImage(i){
+  const s=script.scenes[i]
+  if(!s.image_prompt) return
+  const fd=new FormData(); fd.append('prompt',s.image_prompt); fd.append('size','16:9'); fd.append('n','1')
+  const r=await fetch('/api/image/generate',{method:'POST',body:fd})
+  const d=await r.json()
+  if(d.success){ s.image_url=d.urls[0]; s.image_path=d.local_paths[0]; renderScenes(); saveScript(); updatePipeline() }
+}
+
+async function genAllImages(){
+  for(let i=0;i<script.characters.length;i++){
+    if(script.characters[i].image_prompt&&!script.characters[i].image_path) await genCharImage(i)
+  }
+  for(let i=0;i<script.scenes.length;i++){
+    if(script.scenes[i].image_prompt&&!script.scenes[i].image_path) await genSceneImage(i)
+  }
+  toast('全部出图完成')
+}
+
+// ---- Render all ----
+function renderAll(){ renderCharGrid(); renderScenes(); updatePipeline() }
+
+// ---- Init ----
+loadScriptList()
+</script>
+{% endblock %}

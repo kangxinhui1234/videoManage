@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}图片编辑 - AI Studio{% endblock %}
+{% block nav_edit %}active{% endblock %}
+
+{% block content %}
+<h1>图片编辑</h1>
+<p class="muted" style="margin-bottom:20px">基于参考图 + 提示词生成新图片。上传本地图片会自动转为 Base64 传给模型。</p>
+
+<div class="grid2">
+  <div class="card">
+    <form id="edit-form" onsubmit="doEdit(event)">
+      <label>模型</label>
+      <select name="model">
+        {% for m in models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+      </select>
+
+      <label>参考图来源</label>
+      <div class="flex-row" style="gap:8px">
+        <input type="text" name="image_url" id="edit-url" placeholder="粘贴图片 URL..."
+               oninput="previewFromUrl(this.value)">
+        <span style="font-weight:600;font-size:13px;color:var(--muted)">或</span>
+        <label class="btn-outline" style="cursor:pointer;padding:10px 16px;white-space:nowrap;font-size:13px">
+          上传文件 <input type="file" id="edit-file" accept="image/*" style="display:none"
+                         onchange="onFileSelected(this)">
+        </label>
+      </div>
+      <!-- preview -->
+      <div id="ref-preview" style="margin-top:12px;display:none">
+        <img id="ref-preview-img" style="max-width:100%;max-height:360px;border-radius:8px;border:1px solid var(--border);object-fit:contain">
+        <div class="flex-row" style="margin-top:6px">
+          <span class="muted" id="ref-preview-label"></span>
+          <button type="button" class="btn-outline btn-sm" onclick="clearReference()">清除参考图</button>
+        </div>
+      </div>
+
+      <label>编辑指令</label>
+      <textarea name="prompt" placeholder="描述你想要的修改...&#10;例如：给人物加上微笑表情，背景改成海边日落&#10;例如：将图片风格转换为动漫风格&#10;例如：增加柔光滤镜，提高亮度"></textarea>
+
+      <div class="grid2">
+        <div>
+          <label>输出比例</label>
+          <select name="size">
+            {% for k,v in ratios.items() %}
+            <option value="{{ k }}" {% if k=='1:1' %}selected{% endif %}>{{ k }} ({{ v }})</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="flex-row" style="margin-top:16px">
+        <button type="submit" id="edit-btn">
+          <span class="spinner" id="edit-spin"></span> 开始编辑
+        </button>
+        <span class="muted">同步，约 5-15 秒</span>
+      </div>
+    </form>
+    <div id="edit-error" class="flash"></div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2 style="font-size:16px;margin-bottom:12px">编辑结果</h2>
+      <div id="edit-results" class="grid3"></div>
+      <div id="edit-empty" class="empty">上传参考图并输入编辑指令后开始</div>
+    </div>
+
+    {% if recent_images %}
+    <div class="card">
+      <h2 style="font-size:16px;margin-bottom:12px">最近图片 <span class="muted">（点击作为参考图）</span></h2>
+      <div class="grid3">
+        {% for img in recent_images %}
+        <img src="{{ img.local_path }}" class="result-img"
+             onclick="$('edit-url').value='{{ img.urls[0] }}';previewFromUrl('{{ img.urls[0] }}');toast('已填入参考图URL')"
+             style="cursor:pointer" loading="lazy" title="点击使用此图作为参考">
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _refFile = null
+
+function onFileSelected(input){
+  _refFile = input.files[0]
+  if(!_refFile) return
+  $('edit-url').value = ''
+  const url = URL.createObjectURL(_refFile)
+  $('ref-preview-img').src = url
+  $('ref-preview-label').textContent = _refFile.name + ' (' + formatSize(_refFile.size) + ')'
+  $('ref-preview').style.display = ''
+}
+
+function previewFromUrl(url){
+  if(!url.trim() || _refFile){ $('ref-preview').style.display='none'; return }
+  $('ref-preview-img').src = url
+  $('ref-preview-label').textContent = url
+  $('ref-preview').style.display = ''
+  $('ref-preview-img').onerror = function(){
+    $('ref-preview').style.display = 'none'
+  }
+}
+
+function clearReference(){
+  _refFile = null
+  $('edit-file').value = ''
+  $('edit-url').value = ''
+  $('ref-preview').style.display = 'none'
+}
+
+function formatSize(bytes){
+  if(bytes < 1024) return bytes + ' B'
+  if(bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB'
+  return (bytes/1048576).toFixed(1) + ' MB'
+}
+
+async function doEdit(e){
+  e.preventDefault()
+  const btn=$('edit-btn'),spin=$('edit-spin'),err=$('edit-error')
+  btn.disabled=true;spin.style.display='inline-block';err.style.display='none'
+  try{
+    const fd=new FormData(e.target)
+    if(_refFile) fd.append('image_file', _refFile)
+    const resp=await fetch('/api/image/edit',{method:'POST',body:fd})
+    const data=await resp.json()
+    if(!data.success) throw new Error(data.error)
+    showEditResults(data)
+    toast('编辑完成')
+  }catch(ex){
+    err.textContent='编辑失败: '+ex.message;err.style.display='block'
+  }finally{
+    btn.disabled=false;spin.style.display='none'
+  }
+}
+
+function showEditResults(data){
+  const el=$('edit-results'),empty=$('edit-empty')
+  el.innerHTML='';empty.style.display='none'
+  data.urls.forEach((url,i)=>{
+    const src=data.local_paths[i]||url
+    const card=document.createElement('div')
+    card.innerHTML=`
+      <img src="${src}" class="result-img" onclick="window.open('${src}')" loading="lazy">
+      <div class="flex-row" style="margin-top:6px">
+        <a href="${src}" download class="btn btn-sm" style="text-decoration:none">下载</a>
+        <button class="btn-outline btn-sm" onclick="useForVideo('${url}')">用于视频</button>
+      </div>`
+    el.appendChild(card)
+  })
+}
+
+function useForVideo(url){
+  sessionStorage.setItem('ref_image_url', url)
+  window.location.href='/video'
+}
+
+// restore ref image URL from sessionStorage (set by image page)
+(function(){
+  const saved=sessionStorage.getItem('ref_image_url')
+  if(saved){
+    $('edit-url').value=saved
+    previewFromUrl(saved)
+    sessionStorage.removeItem('ref_image_url')
+  }
+})()
+</script>
+{% endblock %}
