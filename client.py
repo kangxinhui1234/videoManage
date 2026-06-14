@@ -39,6 +39,7 @@ class BaseClient:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         })
+        self.session.proxies = {"http": None, "https": None}
 
     # ------------------------------------------------------------------
     # Internal helpers

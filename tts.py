@@ -55,7 +55,7 @@ def cosy_speak(text, voice="FunAudioLLM/CosyVoice2-0.5B:anna",
 
     resp = requests.post(f"{SF_BASE}/audio/speech", json=body,
         headers={"Authorization": f"Bearer {SF_API_KEY}"},
-        timeout=(15, 120), verify=False)
+        timeout=(15, 120), verify=False, proxies={"http": None, "https": None})
     resp.raise_for_status()
 
     with open(output_path, "wb") as f:
@@ -88,7 +88,7 @@ def upload_voice(audio_path, custom_name, reference_text):
     resp = requests.post(f"{SF_BASE}/uploads/audio/voice",
         json=body,
         headers={"Authorization": f"Bearer {SF_API_KEY}"},
-        timeout=30, verify=False)
+        timeout=30, verify=False, proxies={"http": None, "https": None})
     resp.raise_for_status()
     return resp.json().get("uri", "")
 
@@ -99,7 +99,7 @@ def list_custom_voices():
         return []
     resp = requests.get(f"{SF_BASE}/audio/voice/list",
         headers={"Authorization": f"Bearer {SF_API_KEY}"},
-        timeout=10, verify=False)
+        timeout=10, verify=False, proxies={"http": None, "https": None})
     return resp.json() if resp.ok else []
 
 
@@ -108,5 +108,5 @@ def delete_voice(uri):
     resp = requests.post(f"{SF_BASE}/audio/voice/deletions",
         json={"uri": uri},
         headers={"Authorization": f"Bearer {SF_API_KEY}"},
-        timeout=10, verify=False)
+        timeout=10, verify=False, proxies={"http": None, "https": None})
     return resp.ok

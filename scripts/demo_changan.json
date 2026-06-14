@@ -217,9 +217,9 @@
             },
             {
               "label": "特写",
-              "image_prompt": "青瓷茶盏在暗色木桌上落定的特写。茶盏中的茶水还有余波——一圈圈涟漪在幽暗的茶汤中扩散。茶盏旁，林小宛的手已撤回袖中，只剩少年僵在琴弦上方的手指还留在画面边缘。茶盏的稳定与少年指尖的轻微颤抖形成对比——这一刻，胜负已分。静物般的视觉效果，茶水和陶釉的质感清晰可见。9:16竖屏",
-              "image_path": "",
-              "image_url": ""
+              "image_prompt": "茶盏里的茶水因落盏而微微晃动，窗外夜风吹入，纸窗哗啦作响的瞬间被定格，烛火摇曳，在她半张脸上投下明灭不定的阴影。背景虚化中，隔壁棋局上一枚白子正悬在半空，即将落盘。电影级动作定格，隐喻层面的窒息感，9:16竖屏",
+              "image_path": "/output/images/img_1781423347_0.png",
+              "image_url": "https://oss.filenest.top/uploads/1548a1ea-8acc-4f90-9081-4ce96e74bff1.png"
             }
           ]
         }
@@ -851,12 +851,16 @@
     {
       "name": "悦来茶馆内部",
       "description": "悦来茶馆主厅——木质结构，纸窗透暖光，柜台、散座、角落琴位。第一、二集主要场景。",
-      "image_prompt": "唐代茶馆内部，深色木梁柱，纸窗透出温暖琥珀色灯光。木质柜台摆放陶瓷茶罐和算盘，几张方形木桌配条凳，角落炭炉上铜壶冒着蒸腾热气，竹盆栽点缀其间。温馨而古旧的氛围。电影级写实摄影，9:16竖屏"
+      "image_prompt": "唐代茶馆内部，深色木梁柱，纸窗透出温暖琥珀色灯光。木质柜台摆放陶瓷茶罐和算盘，几张方形木桌配条凳，角落炭炉上铜壶冒着蒸腾热气，竹盆栽点缀其间。温馨而古旧的氛围。电影级写实摄影，9:16竖屏",
+      "image_url": "https://oss.filenest.top/uploads/b667e0e5-109d-4cf5-ba89-2a3cd6c3966a.png",
+      "image_path": "/output/images/img_1781422946_0.png"
     },
     {
       "name": "悦来茶馆内部角落",
       "description": "茶馆最暗的角落，月光从窗外斜入。沈霁弹琴的专属位置。",
-      "image_prompt": "唐代茶馆最暗的角落，一张矮木桌上摆放七弦古琴。单扇纸窗透入一束月光，在深色木地板上投下银色光斑。阴影中的竹盆栽，极简陈设，强烈的明暗对比。电影级写实摄影，9:16竖屏"
+      "image_prompt": "唐代茶馆最暗的角落，一张矮木桌上摆放七弦古琴。单扇纸窗透入一束月光，在深色木地板上投下银色光斑。阴影中的竹盆栽，极简陈设，强烈的明暗对比。电影级写实摄影，9:16竖屏",
+      "image_url": "https://geekus.oss-us-west-1.aliyuncs.com/chatgpt/62831ac6-6b41-44e9-8ae1-e678d3d28268.png",
+      "image_path": "/output/images/img_1781423005_0.png"
     },
     {
       "name": "刑部档案库房",
@@ -929,5 +933,5 @@
       "image_prompt": "an antique seven-string Chinese guqin zither made of dark aged paulownia wood with subtle grain patterns, silk strings visible, simple elegant design without ornamentation, resting horizontally on low wooden stand, soft warm light creating gentle shadows, Tang dynasty musical instrument, 1:1 square still life"
     }
   ],
-  "updated_at": 1781417839
+  "updated_at": 1781423353
 }

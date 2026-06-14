@@ -630,13 +630,25 @@ async def api_script_export_ep(req: Request):
         }
         (sd / "info.json").write_text(json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
 
-        # Copy image
-        img = s.get("image_path", "") or s.get("image_url", "")
-        if img and img.startswith("/output/"):
-            src = BASE_DIR / img.lstrip("/")
-            if src.exists():
-                ext = src.suffix or ".png"
-                shutil.copy(src, sd / f"image{ext}")
+        # Copy shot images (images array, ordered by index for editing)
+        shot_imgs = s.get("images", [])
+        for si_idx, si_img in enumerate(shot_imgs):
+            img = si_img.get("image_path", "") or si_img.get("image_url", "")
+            if img and img.startswith("/output/"):
+                src = BASE_DIR / img.lstrip("/")
+                if src.exists():
+                    ext = src.suffix or ".png"
+                    label = si_img.get("label", f"图{si_idx+1}")
+                    safe_label = label.replace("/", "_").replace("\\", "_")
+                    shutil.copy(src, sd / f"{si_idx+1:02d}_{safe_label}{ext}")
+        # Fallback: single image_path on shot itself
+        if not shot_imgs:
+            img = s.get("image_path", "") or s.get("image_url", "")
+            if img and img.startswith("/output/"):
+                src = BASE_DIR / img.lstrip("/")
+                if src.exists():
+                    ext = src.suffix or ".png"
+                    shutil.copy(src, sd / f"image{ext}")
 
         # Copy audio
         aud = s.get("audio_path", "")

@@ -66,6 +66,7 @@ class ScriptAgent:
             timeout=(15, 180),
             verify=False,
             stream=stream,
+            proxies={"http": None, "https": None},
         )
 
     def chat_stream(self, user_message):

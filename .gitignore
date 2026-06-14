@@ -9,3 +9,4 @@ tasks.json
 tasks.json.bak
 *.pyc
 .env
+_debug*.py
