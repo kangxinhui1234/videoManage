@@ -1,6 +1,7 @@
 import os
 
 API_BASE_URL = "https://api.geeknow.ai"
+GROK_API_BASE_URL = "https://www.geeknow.top"
 
 # API Key — priority: env var > local file > empty
 def _load_api_key():

@@ -4,6 +4,7 @@ Run:  python server.py
 """
 
 import os, sys, time, base64, json, threading, subprocess
+import requests as _http
 from pathlib import Path
 
 from typing import List
@@ -20,6 +21,7 @@ from task_store import store          # noqa: E402
 from tts import cosy_speak, VOICES  # noqa: E402
 from script_agent import ScriptAgent                # noqa: E402
 from script_model import Script, create_script       # noqa: E402
+import config                                        # noqa: E402
 
 # ═══════════════════════════════════════════════════════
 # Setup
@@ -47,6 +49,10 @@ def get_client():
 
 IMAGE_MODELS  = ["gpt-image-2"]
 VIDEO_MODELS  = {
+    "grok-imagine-video-1.5-preview":   "Grok Imagine Video 1.5 Preview",
+    "grok-video-3":                      "Grok Video 3",
+    "grok-video-3-pro":                  "Grok Video 3 Pro (固定10秒)",
+    "grok-video-3-max":                  "Grok Video 3 Max (固定15秒)",
     "kling-3.0-omni-1080p-ref-audio":   "可灵 3.0 (1080p + 参考图 + 音频)",
     "kling-3.0-omni-1080p-noref-audio": "可灵 3.0 (1080p + 音频，无参考图)",
     "kling-3.0-720p-audio":             "可灵 3.0 (720p + 音频，无参考图)",
@@ -59,6 +65,9 @@ VIDEO_MODELS  = {
     "sora-2":                            "Sora 2",
     "sora-2-pro":                        "Sora 2 Pro",
 }
+GROK_MODELS = {"grok-video-3", "grok-video-3-pro", "grok-video-3-max", "grok-imagine-video-1.5-preview"}
+GROK_ASPECT_RATIOS = [("3:2", "3:2 (横屏)"), ("2:3", "2:3 (竖屏)"), ("1:1", "1:1 (方形)")]
+GROK_SIZE_PRESETS = [("720P", "720P"), ("1080P", "1080P")]
 # (value, label) — label shows aspect ratio + orientation
 SIZE_PRESETS = [
     ("1280x720",   "1280x720 (16:9 横屏)"),
@@ -75,6 +84,72 @@ ASPECT_RATIOS = {
 }
 
 # ═══════════════════════════════════════════════════════
+# Grok video API helpers
+# ═══════════════════════════════════════════════════════
+
+def _grok_create_video(model, prompt, aspect_ratio="", seconds=0, size="", ref_files_data=None):
+    url = f"{config.GROK_API_BASE_URL}/v1/videos"
+    headers = {"Authorization": f"Bearer {config.API_KEY}"}
+    data = {"model": model, "prompt": prompt}
+    if aspect_ratio:
+        data["aspect_ratio"] = aspect_ratio
+    if seconds:
+        data["seconds"] = str(seconds)
+    if size:
+        data["size"] = size
+    files = []
+    if ref_files_data:
+        for fname, fdata, ctype in ref_files_data:
+            files.append(("input_reference", (fname, fdata, ctype)))
+    resp = _http.post(url, headers=headers, data=data,
+                      files=files if files else None,
+                      timeout=(15, 180), verify=False,
+                      proxies={"http": None, "https": None})
+    if not resp.ok:
+        raise RuntimeError(f"{resp.status_code} {resp.reason}: {resp.text[:500]}")
+    return resp.json()
+
+
+def _grok_get_video(task_id):
+    url = f"{config.GROK_API_BASE_URL}/v1/videos/{task_id}"
+    headers = {"Authorization": f"Bearer {config.API_KEY}"}
+    resp = _http.get(url, headers=headers, timeout=(15, 30), verify=False,
+                     proxies={"http": None, "https": None})
+    if not resp.ok:
+        raise RuntimeError(f"{resp.status_code}: {resp.text[:500]}")
+    return resp.json()
+
+
+def _grok_extract_video_url(info):
+    output = info.get("output", {})
+    if isinstance(output, dict) and output.get("url"):
+        return output["url"]
+    if info.get("video_url"):
+        return info["video_url"]
+    if info.get("url"):
+        return info["url"]
+    detail = info.get("detail", {})
+    if isinstance(detail, dict) and detail.get("url"):
+        return detail["url"]
+    return None
+
+
+def _download_video_file(url, headers=None):
+    filename = f"video_{int(time.time())}.mp4"
+    save_path = os.path.join(str(BASE_DIR / "output" / "videos"), filename)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    resp = _http.get(url, stream=True, timeout=(15, 300), verify=False,
+                     headers=headers, proxies={"http": None, "https": None})
+    resp.raise_for_status()
+    with open(save_path, "wb") as f:
+        for chunk in resp.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+    rel = os.path.relpath(save_path, str(BASE_DIR))
+    return "/" + rel.replace("\\", "/")
+
+
+# ═══════════════════════════════════════════════════════
 # Background video poller
 # ═══════════════════════════════════════════════════════
 
@@ -82,12 +157,39 @@ def _poll_video_tasks():
     while True:
         time.sleep(5)
         c = globals().get("client")
-        if c is None:
-            continue
         try:
             for t in store.list_all("video"):
-                if t.get("status") in ("queued", "in_progress"):
-                    try:
+                if t.get("status") not in ("queued", "in_progress", "processing"):
+                    continue
+                try:
+                    is_grok = t.get("model", "") in GROK_MODELS
+                    if is_grok:
+                        info = _grok_get_video(t["id"])
+                        s = info.get("status", t["status"])
+                        if s == "processing":
+                            s = "in_progress"
+                        upd = {"status": s}
+                        if info.get("progress") is not None:
+                            upd["progress"] = info["progress"]
+                        if s == "completed":
+                            vurl = _grok_extract_video_url(info)
+                            upd["video_url"] = vurl
+                            if vurl:
+                                try:
+                                    upd["local_path"] = _download_video_file(vurl)
+                                except Exception:
+                                    try:
+                                        content_url = f"{config.GROK_API_BASE_URL}/v1/videos/{t['id']}/content"
+                                        auth_h = {"Authorization": f"Bearer {config.API_KEY}"}
+                                        upd["local_path"] = _download_video_file(content_url, headers=auth_h)
+                                    except Exception:
+                                        pass
+                        elif s == "failed":
+                            upd["error"] = info.get("error", "unknown")
+                        store.update(t["id"], upd)
+                    else:
+                        if c is None:
+                            continue
                         info = c.videos.get(t["id"])
                         s = info.get("status", t["status"])
                         upd = {"status": s}
@@ -102,8 +204,8 @@ def _poll_video_tasks():
                         elif s == "failed":
                             upd["error"] = info.get("error", "unknown")
                         store.update(t["id"], upd)
-                    except Exception:
-                        pass
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -134,6 +236,8 @@ async def page_video(req: Request):
         "models": VIDEO_MODELS,
         "sizes": SIZE_PRESETS,
         "seconds_options": SECONDS_OPTIONS,
+        "grok_aspects": GROK_ASPECT_RATIOS,
+        "grok_sizes": GROK_SIZE_PRESETS,
         "recent_images": recent_images,
     })
 
@@ -247,10 +351,11 @@ async def api_image_edit(
 
 @app.post("/api/video/create")
 async def api_video_create(
-    model: str = Form("sora-2-pro"),
+    model: str = Form("grok-imagine-video-1.5-preview"),
     prompt: str = Form(...),
     seconds: str = Form("5"),
     size: str = Form("1280x720"),
+    aspect_ratio: str = Form(""),
     generate_audio: bool = Form(False),
     # optional URLs
     image_url: str = Form(""),
@@ -259,17 +364,58 @@ async def api_video_create(
     ref_files: List[UploadFile] = File([]),
 ):
     try:
+        is_grok = model in GROK_MODELS
+
+        if is_grok:
+            # --- Grok: multipart/form-data to separate API ---
+            ref_files_data = []
+            for f in ref_files:
+                if f.filename:
+                    data = await f.read()
+                    ref_files_data.append((f.filename, data, f.content_type or "image/png"))
+            # download URL refs as binary for Grok file upload
+            url_refs = []
+            if ref_urls.strip():
+                url_refs = [u.strip() for u in ref_urls.split(",") if u.strip()]
+            elif image_url.strip():
+                url_refs = [image_url.strip()]
+            for i, u in enumerate(url_refs):
+                try:
+                    r = _http.get(u, timeout=30, verify=False, proxies={"http": None, "https": None})
+                    if r.ok:
+                        ct = r.headers.get("content-type", "image/png").split(";")[0]
+                        ref_files_data.append((f"ref_{i}.png", r.content, ct))
+                except Exception:
+                    pass
+
+            sec = int(seconds) if seconds.strip() else 0
+            result = _grok_create_video(
+                model=model, prompt=prompt,
+                aspect_ratio=aspect_ratio.strip() or "",
+                seconds=sec,
+                size=size.strip() or "",
+                ref_files_data=ref_files_data if ref_files_data else None,
+            )
+            task_id = result.get("id", "")
+            raw_status = result.get("status", "queued")
+            if raw_status == "processing":
+                raw_status = "in_progress"
+            task = store.make_task("video", task_id,
+                                   model=model, prompt=prompt,
+                                   status=raw_status,
+                                   ref_count=len(ref_files_data))
+            store.add(task)
+            return JSONResponse({"success": True, "task_id": task_id, "task": task})
+
+        # --- Non-Grok models (Sora / Kling / etc.) ---
         is_sora = model.startswith("sora-")
         kwargs = {
             "seconds": seconds.strip(),
             "size": size.strip(),
         }
-        # Sora natively generates audio for text-to-video; sending generate_audio
-        # triggers a different pipeline (generate action) that breaks audio.
         if generate_audio and not is_sora:
             kwargs["generate_audio"] = True
 
-        # --- collect reference images ---
         ref_list = []
         for f in ref_files:
             if f.filename:
@@ -282,11 +428,8 @@ async def api_video_create(
         elif image_url.strip():
             ref_list.append(image_url.strip())
 
-        # send refs via correct field per model
-        is_sora = model.startswith("sora-")
         if ref_list:
             if is_sora:
-                # Sora uses input_reference, supports base64 data URIs natively
                 kwargs["input_reference"] = ref_list if len(ref_list) > 1 else ref_list[0]
             else:
                 kwargs["reference_images"] = ref_list
@@ -307,7 +450,14 @@ async def api_video_create(
 async def api_video_status(task_id: str):
     task = store.get(task_id)
     if not task:
-        # try live query
+        # try live query — check Grok first, then default client
+        try:
+            info = _grok_get_video(task_id)
+            if info.get("status") == "processing":
+                info["status"] = "in_progress"
+            return JSONResponse(info)
+        except Exception:
+            pass
         try:
             info = get_client().videos.get(task_id)
             return JSONResponse(info)

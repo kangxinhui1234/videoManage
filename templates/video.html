@@ -11,7 +11,7 @@
       <label>模型</label>
       <select name="model" id="model-select" onchange="onModelChange()">
         {% for k,v in models.items() %}
-        <option value="{{ k }}" {% if k=='sora-2-pro' %}selected{% endif %}>{{ v }} ({{ k }})</option>
+        <option value="{{ k }}" {% if k=='grok-imagine-video-1.5-preview' %}selected{% endif %}>{{ v }} ({{ k }})</option>
         {% endfor %}
       </select>
 
@@ -22,7 +22,7 @@
 
       <div class="grid2">
         <div>
-          <label>尺寸</label>
+          <label>尺寸 / 分辨率</label>
           <select name="size" id="size-select">
             {% for s in sizes %}
             <option value="{{ s[0] }}" {% if s[0]=='1280x720' %}selected{% endif %}>{{ s[1] }}</option>
@@ -30,13 +30,25 @@
           </select>
         </div>
         <div>
-          <label>时长（秒）<span class="muted"> Kling 建议 ≤10</span></label>
+          <label>时长（秒）<span class="muted" id="seconds-hint"> Kling 建议 ≤10</span></label>
           <select name="seconds" id="seconds-select">
             {% for s in seconds_options %}
             <option value="{{ s }}" {% if s=='5' %}selected{% endif %}>{{ s }} 秒</option>
             {% endfor %}
           </select>
         </div>
+      </div>
+
+      <div id="aspect-ratio-group" class="grid2" style="display:none;margin-top:12px">
+        <div>
+          <label>画面比例 <span class="muted">（Grok 专用）</span></label>
+          <select name="aspect_ratio" id="aspect-ratio-select">
+            {% for a in grok_aspects %}
+            <option value="{{ a[0] }}" {% if a[0]=='3:2' %}selected{% endif %}>{{ a[1] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div></div>
       </div>
 
       <div class="flex-row" style="margin-top:12px">
@@ -115,6 +127,9 @@
 <script>
 let pollTimer=null, _refFiles=[], _refUrls=[]
 
+const GROK_MODELS=['grok-video-3','grok-video-3-pro','grok-video-3-max','grok-imagine-video-1.5-preview']
+const GROK_SIZES=[['720P','720P'],['1080P','1080P']]
+const GROK_SECONDS=['4','5','6','8','10','15']
 const SORA_SECONDS=['4','8','12']
 const ALL_SECONDS=['4','5','6','8','10','12','15']
 const SORA_SIZES=[['1280x720','1280x720 (16:9)'],['720x1280','720x1280 (9:16)']]
@@ -123,23 +138,51 @@ const ALL_SIZES=[['1280x720','1280x720 (16:9 横屏)'],['720x1280','720x1280 (9:
 
 function onModelChange(){
   const m=$('model-select').value
+  const isGrok=GROK_MODELS.includes(m)
   const isSora=m.startsWith('sora-')
   const isSoraPro=m==='sora-2-pro'
-  // update audio hint
-  $('audio-hint').textContent=isSora?'（Sora 原生自带音频，无需勾选）':'（Kling 需勾选；Sora 原生自带）'
-  // update seconds
-  const secs=isSora?SORA_SECONDS:ALL_SECONDS
-  const sel=$('seconds-select')
-  sel.innerHTML=secs.map(function(s){
-    var sel=(s==='4'&&isSora)||(s==='5'&&!isSora)?' selected':''
-    return '<option value="'+s+'"'+sel+'>'+s+' 秒</option>'
-  }).join('')
-  // update sizes
-  const sizes=isSora?(isSoraPro?SORA_PRO_SIZES:SORA_SIZES):ALL_SIZES
+
+  // show/hide Grok aspect ratio
+  $('aspect-ratio-group').style.display=isGrok?'':'none'
+
+  // audio hint
+  if(isGrok) $('audio-hint').textContent='（Grok 视频不支持音频生成选项）'
+  else if(isSora) $('audio-hint').textContent='（Sora 原生自带音频，无需勾选）'
+  else $('audio-hint').textContent='（Kling 需勾选；Sora 原生自带）'
+
+  // seconds
+  const secSel=$('seconds-select')
+  const hint=$('seconds-hint')
+  if(m==='grok-video-3-pro'){
+    secSel.innerHTML='<option value="10" selected>10 秒（固定）</option>'
+    secSel.disabled=true
+    hint.textContent=' Pro 固定 10 秒'
+  }else if(m==='grok-video-3-max'){
+    secSel.innerHTML='<option value="15" selected>15 秒（固定）</option>'
+    secSel.disabled=true
+    hint.textContent=' Max 固定 15 秒'
+  }else{
+    secSel.disabled=false
+    const secs=isGrok?GROK_SECONDS:isSora?SORA_SECONDS:ALL_SECONDS
+    const defSec=isGrok?'5':isSora?'4':'5'
+    secSel.innerHTML=secs.map(function(s){
+      return '<option value="'+s+'"'+(s===defSec?' selected':'')+'>'+s+' 秒</option>'
+    }).join('')
+    hint.textContent=isGrok?' Grok 基础版按实际传参':isSora?'':' Kling 建议 ≤10'
+  }
+
+  // sizes
   const sz=$('size-select')
-  sz.innerHTML=sizes.map(function(s){
-    return '<option value="'+s[0]+'">'+s[1]+'</option>'
-  }).join('')
+  if(isGrok){
+    sz.innerHTML=GROK_SIZES.map(function(s){
+      return '<option value="'+s[0]+'"'+(s[0]==='1080P'?' selected':'')+'>'+s[1]+'</option>'
+    }).join('')
+  }else{
+    const sizes=isSora?(isSoraPro?SORA_PRO_SIZES:SORA_SIZES):ALL_SIZES
+    sz.innerHTML=sizes.map(function(s){
+      return '<option value="'+s[0]+'">'+s[1]+'</option>'
+    }).join('')
+  }
 }
 
 function updatePromptCount(){
